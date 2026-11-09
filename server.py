@@ -441,7 +441,12 @@ def write_reports(final):
                 models = []
             except urllib.error.HTTPError as e:
                 if e.code in (400, 403, 404):          # 這個型號不能用 → 換下一個
-                    print(f"  ・{models[0]} 無法使用（{e.code}），改用下一個")
+                    try:
+                        why = json.loads(e.read().decode("utf-8")).get("error", {})
+                        why = f"{why.get('status', '')} {why.get('message', '')[:160]}"
+                    except Exception:
+                        why = ""
+                    print(f"  ・{models[0]} 無法使用（{e.code}）{why}，改用下一個")
                     models.pop(0)
                 else:
                     print(f"  ✗ 比特王報導失敗（{e.code}）")
