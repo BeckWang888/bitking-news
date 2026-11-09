@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+    inputs:
+      reports:
+        description: "這次最多寫幾則比特王報導（留空＝平常的 10 則）"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -41,6 +46,7 @@ jobs:
         env:
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_MAX: ${{ inputs.reports }}
       - name: 整理要發布的檔案
         run: |
           mkdir _site

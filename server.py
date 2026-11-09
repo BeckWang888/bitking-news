@@ -355,8 +355,11 @@ def fetch_fb_posts():
 # 使用 Google Gemini 免費額度。金鑰放在 GitHub 秘密設定 GEMINI_API_KEY；沒有金鑰就不會呼叫 AI。
 # 免費額度有每分鐘、每天的次數上限，所以每次更新只寫少量、每則之間稍等，額度用完就停，下次再繼續。
 GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]   # 第一個不能用時，自動試下一個
-AI_MAX_PER_RUN = 5             # 每次更新最多寫幾則
-AI_GAP_SECONDS = 5             # 每則之間間隔幾秒（避免超過每分鐘上限）
+# 免費額度（每個型號）：每分鐘 15 次、每天 500 次
+AI_MAX_PER_RUN = int(os.environ.get("AI_MAX") or 10)   # 每次更新最多寫幾則（手動補寫時可以臨時調高）
+AI_GAP_SECONDS = 4.5           # 每則之間間隔幾秒（每分鐘最多約 13 次，不超過上限）
+HOME_PER_CAT = 6               # 首頁每個分類會出現的新聞數（這些優先寫）
+HOME_LATEST = 12               # 首頁「即時新聞」列表的則數（優先寫）
 AI_SYSTEM = """你是「比特王新聞網」的新聞編輯。你會收到一則新聞的標題、摘要與原始媒體名稱。
 請用你自己的話，寫一篇約 300 字的繁體中文報導，幫讀者看懂這則新聞：
 1. 先用一兩句話說清楚發生了什麼事。
@@ -423,7 +426,17 @@ def write_reports(final):
     if not key:
         print(f"  ・比特王報導：沒有 Gemini 金鑰，沿用舊報導 {sum(1 for it in final if it.get('report'))} 則")
         return
-    need = sorted([it for it in final if not it.get("report")], key=lambda x: x["time"], reverse=True)[:AI_MAX_PER_RUN]
+    # 先寫首頁上看得到的新聞（各分類最新幾則＋即時新聞列表），再寫其他的，同一級裡新的先寫
+    newest = sorted(final, key=lambda x: x["time"], reverse=True)
+    home = {it["id"] for it in newest[:HOME_LATEST]}
+    per = {}
+    for it in newest:
+        if per.get(it["cat"], 0) < HOME_PER_CAT:
+            per[it["cat"]] = per.get(it["cat"], 0) + 1
+            home.add(it["id"])
+    todo = [it for it in newest if not it.get("report")]
+    need = ([it for it in todo if it["id"] in home] + [it for it in todo if it["id"] not in home])[:AI_MAX_PER_RUN]
+    print(f"  ・比特王報導：首頁還缺 {sum(1 for it in todo if it['id'] in home)} 則，其他 {sum(1 for it in todo if it['id'] not in home)} 則")
     models = list(GEMINI_MODELS)
     done = 0
     for i, it in enumerate(need):
@@ -436,9 +449,11 @@ def write_reports(final):
                     it["report"] = text
                     done += 1
                 break
-            except QuotaUsedUp:
-                print("  ・比特王報導：免費額度暫時用完，下次更新再繼續")
-                models = []
+            except QuotaUsedUp:                          # 這個型號額度用完 → 換下一個型號
+                print(f"  ・{models[0]} 免費額度暫時用完，改用下一個")
+                models.pop(0)
+                if not models:
+                    print("  ・比特王報導：所有型號的免費額度都用完，下次更新再繼續")
             except urllib.error.HTTPError as e:
                 if e.code in (400, 403, 404):          # 這個型號不能用 → 換下一個
                     try:
