@@ -405,7 +405,7 @@ def gemini_write(key, model, it):
         data=body, method="POST",
         headers={"Content-Type": "application/json", "x-goog-api-key": key})
     try:
-        with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+        with urllib.request.urlopen(req, timeout=35, context=_ctx) as r:
             data = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 429:
@@ -437,10 +437,21 @@ def write_reports(final):
         if per.get(it["cat"], 0) < HOME_PER_CAT:
             per[it["cat"]] = per.get(it["cat"], 0) + 1
             home.add(it["id"])
+    top = {it["id"] for it in newest[:HOME_LATEST]}           # 「即時新聞」列表
     todo = [it for it in newest if not it.get("report")]
-    need = ([it for it in todo if it["id"] in home] + [it for it in todo if it["id"] not in home])[:AI_MAX_PER_RUN]
+    # 順序：首頁的政治新聞 → 即時新聞列表 → 首頁其他分類 → 首頁以外的政治新聞 → 其他
+    def rank(it):
+        if it["id"] in home and it["cat"] in FLASH_CATS:
+            return 0
+        if it["id"] in top:
+            return 1
+        if it["id"] in home:
+            return 2
+        return 3 if it["cat"] in FLASH_CATS else 4
+    need = sorted(todo, key=rank)[:AI_MAX_PER_RUN]         # sorted 會保留「新的在前」的順序
     print(f"  ・比特王報導：首頁還缺 {sum(1 for it in todo if it['id'] in home)} 則，其他 {sum(1 for it in todo if it['id'] not in home)} 則")
     dead = set()                                        # 這次更新中已經不能用（額度用完等）的型號
+    fails = {}                                          # 各型號這次更新忙碌／逾時的次數
     done, used = 0, {}
     for i, it in enumerate(need):
         if i:
@@ -471,12 +482,15 @@ def write_reports(final):
                         why = ""
                     print(f"  ・{m} 無法使用（{e.code}）{why}，改用另一個")
                     dead.add(m)
-                else:
-                    print(f"  ✗ 比特王報導失敗（{e.code}）")
-                    break
-            except Exception as e:
-                print(f"  ✗ 比特王報導失敗：{type(e).__name__}")
-                break
+                else:                                    # 伺服器忙碌（5xx）→ 同一則改用另一個型號
+                    print(f"  ・{m} 忙碌（{e.code}），這則改用另一個")
+                    fails[m] = fails.get(m, 0) + 1
+            except Exception as e:                       # 逾時等 → 同一則改用另一個型號
+                print(f"  ・{m} 回應太慢（{type(e).__name__}），這則改用另一個")
+                fails[m] = fails.get(m, 0) + 1
+            if fails.get(m, 0) >= 2 and m not in dead:  # 這次更新連續出問題兩次，先不用它
+                print(f"  ・{m} 這次更新暫停使用")
+                dead.add(m)
     print(f"  ✓ 比特王報導：新寫 {done} 則（{'、'.join(f'{k} {v} 則' for k, v in used.items()) or '無'}），"
           f"共 {sum(1 for it in final if it.get('report'))} 則有報導")
 
