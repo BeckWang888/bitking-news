@@ -36,6 +36,8 @@ jobs:
           restore-keys: covers-
       - name: 抓取最新新聞
         run: python server.py --once
+        env:
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
       - name: 整理要發布的檔案
         run: |
           mkdir _site

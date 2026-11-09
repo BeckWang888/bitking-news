@@ -15,6 +15,7 @@
 
   const NEWS_CATS = CATEGORIES.filter(c => c.id !== "all" && !c.video);   // 新聞分類（不含首頁與頻道）
   let VIDEOS = [];        // 比特王頻道影片
+  let FBPOSTS = [];       // 比特王 FB 貼文
   let CHANNEL = "https://www.youtube.com/@bitking888";
   let ARTS = [];          // 目前顯示的新聞
   let UPDATED = "";       // 新聞最後更新時間
@@ -250,20 +251,41 @@
   // 比特王 Facebook：使用 Facebook 官方的「粉絲專頁外掛程式」顯示最新貼文
   function fbSection() {
     if (typeof FB_PAGE === "undefined") return "";
+    if (!FBPOSTS.length) {                     // 還沒有貼文資料時，顯示追蹤橫幅
+      return `<section class="section fbsec" style="--c:#1877f2">
+        <div class="fb-banner">
+          <span class="fb-ico big">f</span>
+          <img src="logo.png" alt="比特王">
+          <div class="fb-txt"><h3>比特王 Facebook 粉絲專頁</h3>
+            <p>政治現場、造勢直擊與深度評論，最新貼文都在粉專，按讚追蹤不漏接！</p></div>
+          <a class="fb-btn" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">👍 前往粉專看最新貼文</a>
+        </div>
+      </section>`;
+    }
+    const card = p => `<a class="fbcard fade-in" href="${esc(p.link || FB_PAGE)}" target="_blank" rel="noopener">
+        <div class="fbthumb">${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+          : `<span class="fbtext-only">${esc(p.text.slice(0, 60))}</span>`}</div>
+        <div class="fbbody"><p>${esc(p.text || "（圖片貼文）")}</p>
+          <div class="meta"><span class="src" style="color:#1877f2">比特王 FB</span><span>${ago(p.time)}</span></div></div>
+      </a>`;
     return `<section class="section fbsec" style="--c:#1877f2">
-      <div class="fb-banner">
-        <span class="fb-ico big">f</span>
-        <img src="logo.png" alt="比特王">
-        <div class="fb-txt"><h3>比特王 Facebook 粉絲專頁</h3>
-          <p>政治現場、造勢直擊與深度評論，最新貼文都在粉專，按讚追蹤不漏接！</p></div>
-        <a class="fb-btn" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">👍 前往粉專看最新貼文</a>
+      <div class="section-head">
+        <h2><span class="fb-ico">f</span>比特王 Facebook</h2>
+        <a class="more" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">到粉絲專頁 →</a>
+      </div>
+      <div class="ch-row-wrap">
+        <button class="ch-arrow prev" aria-label="往左看">‹</button>
+        <div class="ch-row" id="fbRow">${FBPOSTS.map(card).join("")}</div>
+        <button class="ch-arrow next" aria-label="往右看">›</button>
       </div>
     </section>`;
   }
 
   // 頻道那一排：左右箭頭一次捲動一個畫面寬，捲到底時把箭頭變淡
   function startChannelRow() {
-    const row = $("#chRow");
+    ["#chRow", "#fbRow"].forEach(sel => setupRow($(sel)));
+  }
+  function setupRow(row) {
     if (!row) return;
     const wrap = row.parentElement;
     const step = () => row.clientWidth * 0.9;
@@ -475,6 +497,7 @@
   function useData(d) {
     ARTS = d.articles; UPDATED = d.updated; DEMO = false;
     VIDEOS = d.videos || []; if (d.channel) CHANNEL = d.channel;
+    FBPOSTS = d.fbposts || [];
     $("#updated").textContent = `新聞更新於 ${UPDATED.slice(11, 16)}`;
     paintTicker();
   }

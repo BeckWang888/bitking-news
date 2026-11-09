@@ -4,3 +4,4 @@ news.json.tmp
 .claude/
 __pycache__/
 firestore.rules
+.fb_token

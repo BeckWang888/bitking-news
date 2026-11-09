@@ -20,6 +20,7 @@ import ssl
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -293,6 +294,55 @@ def fetch_videos_page():
     return vids[:15] or None
 
 
+# ---------- 比特王 Facebook 粉專貼文 ----------
+# 需要「粉專存取憑證」：放在 GitHub 的秘密設定 FB_PAGE_TOKEN，
+# 或在自己電腦上存成這個資料夾裡的 .fb_token 檔（這個檔不會上傳）
+GRAPH = "https://graph.facebook.com/v22.0"
+
+
+def fb_token():
+    t = os.environ.get("FB_PAGE_TOKEN", "").strip()
+    if not t:
+        try:
+            t = open(os.path.join(ROOT, ".fb_token"), encoding="utf-8").read().strip()
+        except Exception:
+            t = ""
+    return t
+
+
+def fetch_fb_posts():
+    token = fb_token()
+    if not token:
+        return None
+    url = (f"{GRAPH}/me/posts?fields=id,message,full_picture,permalink_url,created_time,status_type"
+           f"&limit=15&access_token={urllib.parse.quote(token)}")
+    try:
+        data = json.loads(fetch(url))
+    except Exception as e:
+        # 不把網址印出來，避免憑證出現在紀錄裡
+        print(f"  ✗ 比特王 FB 抓取失敗：{type(e).__name__} {getattr(e, 'code', '')}")
+        return None
+    posts = []
+    for x in data.get("data", []):
+        text = clean(x.get("message", ""))
+        img = x.get("full_picture", "")
+        if not text and not img:
+            continue
+        try:
+            t = datetime.fromisoformat(x["created_time"].replace("+0000", "+00:00")).astimezone(TW)
+        except Exception:
+            t = datetime.now(TW)
+        posts.append({
+            "id": x.get("id", ""),
+            "text": text[:300],
+            "img": img,
+            "link": x.get("permalink_url", ""),
+            "time": t.strftime("%Y-%m-%d %H:%M"),
+        })
+    print(f"  ✓ 比特王 FB {len(posts)} 則貼文")
+    return posts
+
+
 VIDEO_BACKUP = os.path.join(ROOT, "videos-backup.json")
 LIVE_SITE = "https://beckwang888.github.io/bitking-news/news.json"
 
@@ -397,7 +447,14 @@ def build():
             pass
     else:
         videos = backup_videos()
+    fbposts = fetch_fb_posts()
+    if fbposts is None:                             # 沒有憑證或這次失敗：沿用上次的貼文
+        try:
+            fbposts = json.loads(fetch(LIVE_SITE)).get("fbposts", [])
+        except Exception:
+            fbposts = []
     data = {"updated": datetime.now(TW).strftime("%Y-%m-%d %H:%M:%S"), "articles": final, "videos": videos,
+            "fbposts": fbposts,
             "channel": "https://www.youtube.com/channel/" + YT_CHANNEL_ID}
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
