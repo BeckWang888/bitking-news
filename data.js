@@ -176,15 +176,16 @@ const BREAKING = [
 /* 即時快訊的跑動速度：每秒移動幾個像素（數字越小越慢） */
 const TICKER_SPEED = 30;
 
+// 只放「官網現在就能免費下載使用」的產品（內測、預告中的先不放）
 const TICKER_ADS = [
-  { text: "沒有 SIM 卡也能通話！「台光一點通 BiBi」全家一按就廣播，有危險按住 3 秒求救，官網免費下載",
+  { text: "沒有 SIM 卡也能通話！「台光一點通 BiBi」全家一按就廣播，官網免費下載",
     url: "https://taiguang.app/apps/intercom.html" },
-  { text: "剪片神器「台光 AI 快剪」：髒話、停頓、贅字 AI 幫你抓，前 3 次輸出免費、沒有浮水印",
+  { text: "剪片神器「台光 AI 快剪」：髒話、停頓、贅字 AI 幫你抓，官網免費下載，前 3 次輸出免費",
     url: "https://taiguang.app/apps/kuaijian.html" },
-  { text: "用說的就能打字！「AI Voice Type」說完自動整理成條列重點，內測準備中，搶先看介紹",
-    url: "https://taiguang.app/apps/voicetype.html" },
-  { text: "台光 APP｜台灣打造、隱私優先，Android 手機與 Windows 電腦都能從官網下載",
-    url: "https://taiguang.app/" },
+  { text: "家有長輩小孩必裝！「台光一點通 BiBi」有危險按住 3 秒求救，全家立刻收到位置，官網免費下載",
+    url: "https://taiguang.app/apps/intercom.html" },
+  { text: "做 YouTube、Podcast 必備！「台光 AI 快剪」停頓自動剪掉，官網免費下載試用、沒有浮水印",
+    url: "https://taiguang.app/apps/kuaijian.html" },
 ];
 
 /* 比特王 Facebook 粉絲專頁 */
