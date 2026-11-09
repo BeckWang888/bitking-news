@@ -489,3 +489,35 @@ img { display: block; max-width: 100%; }
   .ch-row > .vcard { flex-basis: 62%; }
   .ch-arrow { display: none; }
 }
+
+/* ---------- 即時快訊：放慢、圓點緩慢呼吸、廣告樣式 ---------- */
+.ticker-label i { animation: breathe 6s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.ticker-move { animation-duration: 90s; }
+.tk-ad { color: #b45309; font-weight: 700; }
+.tk-ad::before { display: none; }
+.tk-ad b { display: inline-block; background: linear-gradient(90deg, #f59e0b, #d97706); color: #fff; font-size: 12px;
+  padding: 1px 8px; border-radius: 4px; margin-right: 8px; vertical-align: 1px; letter-spacing: 1px; }
+.tk-ad:hover { color: #d97706 !important; text-decoration: underline; }
+:root[data-theme="dark"] .tk-ad { color: #fbbf24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tk-ad { color: #fbbf24; } }
+
+/* ---------- 比特王 Facebook ---------- */
+.fb-ico { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #1877f2;
+  color: #fff; font-family: Arial, sans-serif; font-weight: 900; font-size: 20px; }
+.fbsec .more { color: #1877f2; }
+.fbsec .section-head { border-bottom-color: var(--ink); }
+.fb-row { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.fb-frame { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); height: 420px; }
+.fb-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+.fb-card { background: linear-gradient(150deg, #1877f2, #0b4fb3); color: #fff; border-radius: 14px; padding: 26px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); }
+.fb-card img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 8px; }
+.fb-card h3 { margin: 0; font-size: 24px; font-weight: 900; }
+.fb-card p { margin: 0; line-height: 1.8; opacity: .92; }
+.fb-btn { display: inline-flex; background: #fff; color: #1877f2; font-weight: 900; padding: 10px 22px; border-radius: 99px; margin-top: auto; }
+.fb-btn:hover { filter: brightness(.95); }
+@media (max-width: 860px) {
+  .fb-row { grid-template-columns: 1fr; }
+  .fb-frame { height: 460px; }
+}

@@ -145,6 +145,7 @@
         </aside>
       </div>
       ${channelSection()}
+      ${fbSection()}
       <div class="home-layout">
         <div>${sections}</div>
         ${sidebar()}
@@ -246,6 +247,30 @@
       </div>
     </section>`;
   }
+  // 比特王 Facebook：使用 Facebook 官方的「粉絲專頁外掛程式」顯示最新貼文
+  function fbSection() {
+    if (typeof FB_PAGE === "undefined") return "";
+    const src = "https://www.facebook.com/plugins/page.php?href=" + encodeURIComponent(FB_PAGE) +
+      "&tabs=timeline&width=500&height=420&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&locale=zh_TW";
+    return `<section class="section fbsec" style="--c:#1877f2">
+      <div class="section-head">
+        <h2><span class="fb-ico">f</span>比特王 Facebook</h2>
+        <a class="more" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">到粉絲專頁 →</a>
+      </div>
+      <div class="fb-row">
+        <div class="fb-frame"><iframe src="${src}" title="比特王 Facebook 最新貼文" loading="lazy"
+          scrolling="yes" allow="encrypted-media; clipboard-write; picture-in-picture; web-share"></iframe></div>
+        <div class="fb-card">
+          <img src="logo.png" alt="比特王">
+          <h3>比特王出任務</h3>
+          <p>每天第一手的政治現場、造勢直擊與深度評論，都在比特王粉絲專頁。按讚追蹤，最新貼文不漏接！</p>
+          <a class="fb-btn" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">👍 按讚追蹤粉專</a>
+          <a class="sub-btn" href="${esc(CHANNEL)}?sub_confirmation=1" target="_blank" rel="noopener">▶ 訂閱 YouTube 頻道</a>
+        </div>
+      </div>
+    </section>`;
+  }
+
   // 頻道那一排：左右箭頭一次捲動一個畫面寬，捲到底時把箭頭變淡
   function startChannelRow() {
     const row = $("#chRow");
@@ -470,9 +495,21 @@
     paintTicker();
   }
   function paintTicker() {
-    const items = [...ARTS].sort(byTime).slice(0, 10)
-      .map(a => `<a href="#news/${a.id}">${esc(a.title)}</a>`).join("");
-    $("#ticker").innerHTML = items + items;     // 複製兩份才能無縫循環
+    const news = [...ARTS].sort(byTime).slice(0, 12);
+    const ads = (typeof TICKER_ADS !== "undefined" ? TICKER_ADS : []);
+    const parts = [];
+    news.forEach((a, i) => {
+      parts.push(`<a href="#news/${a.id}">${esc(a.title)}</a>`);
+      if (ads.length && i % 3 === 2) {          // 每 3 則新聞插 1 則廣告
+        const ad = ads[Math.floor(i / 3) % ads.length];
+        parts.push(`<a class="tk-ad" href="${esc(ad.url)}" target="_blank" rel="noopener sponsored"><b>台光 APP</b>${esc(ad.text)}</a>`);
+      }
+    });
+    const el = $("#ticker");
+    el.innerHTML = parts.join("") + parts.join("");   // 複製兩份才能無縫循環
+    // 固定的慢速：每秒移動約 45 像素（不論內容多長，速度都一樣）
+    const dist = el.scrollWidth / 2;
+    if (dist > 0) el.style.animationDuration = Math.max(60, dist / 45) + "s";
   }
 
   // 每 3 分鐘檢查有沒有新新聞，有的話跳出提示
