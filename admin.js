@@ -2,8 +2,9 @@
 import { firebaseConfig, SDK } from "./firebase-config.js";
 const { initializeApp } = await import(`${SDK}/firebase-app.js`);
 const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import(`${SDK}/firebase-auth.js`);
-const { getFirestore, collection, doc, getDocs, deleteDoc, query, where, orderBy, limit, documentId, getCountFromServer }
-  = await import(`${SDK}/firebase-firestore.js`);
+const { getFirestore, collection, doc, getDocs, deleteDoc, query, where, orderBy, limit, documentId, getCountFromServer,
+  addDoc, setDoc, serverTimestamp } = await import(`${SDK}/firebase-firestore.js`);
+const { initPosts } = await import("./admin-posts.js");
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -26,7 +27,24 @@ function loginView(msg) {
   });
 }
 
+// 登入後的版面：上方分頁切換「流量統計」與「原創文章」
+function shell() {
+  $app.innerHTML = `
+    <div class="tabs"><button class="tab on" data-tab="stats">📊 流量統計</button><button class="tab" data-tab="posts">✍ 原創文章</button></div>
+    <div id="panelStats"></div><div id="panelPosts" hidden></div>`;
+  $app.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+    $app.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+    document.getElementById("panelStats").hidden = t.dataset.tab !== "stats";
+    document.getElementById("panelPosts").hidden = t.dataset.tab !== "posts";
+    try { localStorage.setItem("btk-admin-tab", t.dataset.tab); } catch (e) {}
+  });
+  let last = "stats";
+  try { last = localStorage.getItem("btk-admin-tab") || "stats"; } catch (e) {}
+  if (last === "posts") $app.querySelector('[data-tab="posts"]').click();
+}
+
 async function dashboard() {
+  const $app = document.getElementById("panelStats");
   $app.innerHTML = `<div class="center"><p>讀取數據中…</p></div>`;
   const DAYS = 30;
   const days = Array.from({ length: DAYS }, (_, i) => dayStr(DAYS - 1 - i));
@@ -94,6 +112,8 @@ logout.onclick = () => signOut(auth);
 onAuthStateChanged(auth, async u => {
   logout.hidden = !u;
   if (!u) return loginView();
+  shell();
+  initPosts(document.getElementById("panelPosts"), { db, collection, doc, getDocs, addDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp });
   try { await dashboard(); }
   catch (e) {
     console.warn(e);

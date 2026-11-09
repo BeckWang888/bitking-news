@@ -13,7 +13,11 @@
   const byTime = (a, b) => b.time.localeCompare(a.time);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
-  const NEWS_CATS = CATEGORIES.filter(c => c.id !== "all" && !c.video);   // 新聞分類（不含首頁與頻道）
+  const NEWS_CATS = CATEGORIES.filter(c => c.id !== "all" && !c.video && !c.special);
+  let NEWS = [];          // 自動抓來的新聞
+  let ORIG = [];          // 比特王原創文章
+  let postsLoaded = false;
+  let pendingOpen = null; // 原創文章還沒載入時，先記住要打開哪一篇   // 新聞分類（不含首頁與頻道）
   let VIDEOS = [];        // 比特王頻道影片
   let FBPOSTS = [];       // 比特王 FB 貼文
   let CHANNEL = "https://www.youtube.com/@bitking888";
@@ -59,7 +63,7 @@
   function card(a, cls = "") {
     const c = catOf(a.cat);
     return `<article class="card ${cls} fade-in" style="--c:${c.color}" data-id="${a.id}" tabindex="0">
-      <div class="thumb">${ph(a)}${imgTag(a, !cls)}${tag(c)}</div>
+      <div class="thumb">${ph(a)}${imgTag(a, !cls)}${tag(c)}${a.original ? `<span class="orig-badge">✍ 比特王原創</span>` : ""}</div>
       <div class="card-body">
         <h3>${esc(a.title)}</h3>
         <p>${esc(a.summary)}</p>
@@ -145,6 +149,7 @@
             `<li><a href="#news/${a.id}"><time>${hhmm(a.time)}</time><span>${esc(a.title)}<small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}</small></span></a></li>`).join("")}</ul>
         </aside>
       </div>
+      ${originalSection()}
       ${channelSection()}
       ${fbSection()}
       <div class="home-layout">
@@ -248,6 +253,34 @@
       </div>
     </section>`;
   }
+  // 比特王原創：首頁專區（一大四小）
+  function originalSection() {
+    if (!ORIG.length) return "";
+    const big = ORIG.find(hasImg) || ORIG[0];
+    const rest = ORIG.filter(a => a !== big).slice(0, 4);
+    return `<section class="section origsec" style="--c:#b91c1c">
+      <div class="section-head">
+        <h2><span class="dot"></span>比特王原創</h2>
+        <a class="more" href="#cat/original">看全部原創文章 →</a>
+      </div>
+      <div class="cat-block">
+        ${card(big, "big")}
+        <div class="mini-list">${rest.map(mini).join("") || `<p class="muted-note">更多原創文章即將推出</p>`}</div>
+      </div>
+    </section>`;
+  }
+  function renderOriginal() {
+    $("#main").innerHTML = `
+      <div class="cat-hero fade-in" style="--c:#b91c1c" data-icon="✍">
+        <h1>比特王原創</h1><p>比特王新聞網自製的觀點、分析與評論・共 ${ORIG.length} 篇</p>
+      </div>
+      <div class="home-layout">
+        <div class="grid">${ORIG.map((a, i) => card(a, i === 0 ? "feature" : "")).join("") ||
+          `<div class="empty"><b>✍</b>${postsLoaded ? "還沒有原創文章，敬請期待" : "文章載入中…"}</div>`}</div>
+        ${sidebar()}
+      </div>`;
+  }
+
   // 比特王 Facebook：使用 Facebook 官方的「粉絲專頁外掛程式」顯示最新貼文
   function fbSection() {
     if (typeof FB_PAGE === "undefined") return "";
@@ -401,23 +434,29 @@
     id = String(id);
     if (location.hash !== `#news/${id}`) { openedInSite = true; location.hash = `news/${id}`; return; }
     const a = ARTS.find(x => String(x.id) === id);
-    if (!a) { location.hash = ""; return; }
+    if (!a) {
+      if (id.startsWith("p_") && !postsLoaded) { pendingOpen = id; return; }
+      location.hash = ""; return;
+    }
     const c = catOf(a.cat);
     const related = inCat(a.cat).filter(x => x.id !== a.id).slice(0, 6);
     $("#readerArticle").style.setProperty("--c", c.color);
     $("#readerArticle").innerHTML = `
       ${tag(c)}
       <h1>${esc(a.title)}</h1>
-      <div class="reader-meta"><span>來源 <b>${esc(a.source)}</b></span><span>${a.time.replace(/-/g, "/")}</span><span>${ago(a.time)}</span></div>
+      <div class="reader-meta"><span>${a.original ? "作者" : "來源"} <b>${esc(a.source)}</b></span><span>${a.time.replace(/-/g, "/")}</span><span>${ago(a.time)}</span></div>
       ${hasImg(a) ? `<figure class="reader-cover">${imgTag(a, false, true)}</figure>
       <div class="reader-caption">圖片來源：${esc(a.source)}</div>` : `<div style="height:28px"></div>`}
-      <p class="reader-lead">${esc(a.summary)}</p>
+      ${a.body ? `${a.summary ? `<p class="reader-lead">${esc(a.summary)}</p>` : ""}
+        <div class="reader-body">${renderBody(a.body)}</div>
+        <div class="orig-note">✍ 本文為比特王新聞網原創內容，轉載請註明出處。</div>`
+      : `<p class="reader-lead">${esc(a.summary)}</p>`}
       ${a.link ? `<a class="read-full" href="${esc(a.link)}" target="_blank" rel="noopener">
           <span><small>完整報導請至</small>${esc(a.source)} 閱讀全文</span><b>↗</b></a>` : ""}
       <div class="reader-share">
         <button data-share="copy">🔗 複製這篇的連結</button>
       </div>
-      <div class="reader-note">※ 比特王新聞網自動彙整各大媒體公開的新聞摘要，文章版權屬原媒體所有。</div>
+      ${a.original ? "" : `<div class="reader-note">※ 比特王新聞網自動彙整各大媒體公開的新聞摘要，文章版權屬原媒體所有。</div>`}
       <section class="comments section" id="comments" style="--c:${c.color}"></section>
       ${related.length ? `<section class="related section" style="--c:${c.color}">
         <div class="section-head"><h2><span class="dot"></span>更多${c.name}新聞</h2></div>
@@ -444,6 +483,27 @@
     $("#readProgress").style.width = (max > 0 ? (s.scrollTop / max) * 100 : 0) + "%";
   }
 
+  // 原創文章內文：空一行＝新段落；「## 」開頭＝小標題；網址自動變成連結
+  function renderBody(text) {
+    return text.split(/\n\s*\n/).map(block => {
+      const t = block.trim();
+      if (!t) return "";
+      const para = x => x ? `<p>${esc(x).replace(/\n/g, "<br>")
+        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')}</p>` : "";
+      if (t.startsWith("## ")) {                    // 第一行是小標題，後面的行是內文
+        const [head, ...rest] = t.split("\n");
+        return `<h2 class="body-h">${esc(head.slice(3))}</h2>` + para(rest.join("\n").trim());
+      }
+      return para(t);
+    }).join("");
+  }
+  window.BTKAddPosts = posts => {
+    ORIG = posts; postsLoaded = true;
+    ARTS = [...ORIG, ...NEWS];
+    if (pendingOpen) { const id = pendingOpen; pendingOpen = null; openArticle(id); return; }
+    if (!$("#reader").classList.contains("open") && posts.length) route(true);
+  };
+
   /* ---------- 網址切換 ---------- */
   let currentView = null;
   function route(force) {
@@ -465,7 +525,9 @@
     const keepScroll = force === true;
     currentView = view;
 
-    if (type === "cat" && arg === "channel") {
+    if (type === "cat" && arg === "original") {
+      renderOriginal(); setActive("original");
+    } else if (type === "cat" && arg === "channel") {
       renderChannel(); setActive("channel");
     } else if (type === "cat" && CATEGORIES.some(c => c.id === arg && arg !== "all")) {
       renderCategory(arg); setActive(arg);
@@ -495,7 +557,7 @@
     return d;
   }
   function useData(d) {
-    ARTS = d.articles; UPDATED = d.updated; DEMO = false;
+    NEWS = d.articles; ARTS = [...ORIG, ...NEWS]; UPDATED = d.updated; DEMO = false;
     VIDEOS = d.videos || []; if (d.channel) CHANNEL = d.channel;
     FBPOSTS = d.fbposts || [];
     $("#updated").textContent = `新聞更新於 ${UPDATED.slice(11, 16)}`;
@@ -520,9 +582,10 @@
     });
     const el = $("#ticker");
     el.innerHTML = parts.join("") + parts.join("");   // 複製兩份才能無縫循環
-    // 固定的慢速：每秒移動約 30 像素（不論內容多長，速度都一樣）
+    // 固定的慢速：每秒移動的像素數由 data.js 的 TICKER_SPEED 決定（不論內容多長，速度都一樣）
     const dist = el.scrollWidth / 2;
-    if (dist > 0) el.style.animationDuration = Math.max(90, dist / 30) + "s";
+    const speed = (typeof TICKER_SPEED !== "undefined" ? TICKER_SPEED : 3);
+    if (dist > 0) el.style.animationDuration = (dist / speed) + "s";
   }
 
   // 每 3 分鐘檢查有沒有新新聞，有的話跳出提示

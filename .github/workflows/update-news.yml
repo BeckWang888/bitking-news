@@ -41,7 +41,7 @@ jobs:
       - name: 整理要發布的檔案
         run: |
           mkdir _site
-          cp index.html styles.css app.js data.js logo.png news.json community.js firebase-config.js admin.html admin.js _site/
+          cp index.html styles.css app.js data.js logo.png news.json community.js firebase-config.js admin.html admin.js admin-posts.js _site/
           # 每次發布加上版本號，讓瀏覽器一定載入最新檔案
           V=${GITHUB_SHA::8}
           sed -i -E "s/(styles\.css|app\.js|data\.js|community\.js)\"/\1?v=$V\"/g" _site/index.html

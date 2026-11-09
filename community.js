@@ -6,7 +6,7 @@ const { initializeApp } = await import(`${SDK}/firebase-app.js`);
 const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import(`${SDK}/firebase-auth.js`);
 const {
   getFirestore, collection, doc, addDoc, deleteDoc, setDoc, query, where, orderBy, limit,
-  onSnapshot, serverTimestamp, increment,
+  onSnapshot, serverTimestamp, increment, getDocs,
 } = await import(`${SDK}/firebase-firestore.js`);
 
 const app = initializeApp(firebaseConfig);
@@ -174,6 +174,27 @@ async function trackView(article) {
     }
   } catch (e) { console.warn("流量記錄失敗", e); }
 }
+
+/* ---------- 比特王原創文章 ---------- */
+function twTime(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : new Date();
+  return new Date(d.getTime() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+}
+async function loadPosts() {
+  try {
+    const snap = await getDocs(query(collection(db, "posts"), where("published", "==", true), orderBy("createdAt", "desc"), limit(60)));
+    const posts = snap.docs.map(d => {
+      const x = d.data();
+      return { id: "p_" + d.id, cat: x.cat, title: x.title, summary: x.summary || x.body.slice(0, 120),
+        body: x.body, img: x.img || "", source: x.author || "比特王新聞網", time: twTime(x.createdAt), original: true };
+    });
+    window.BTKAddPosts && window.BTKAddPosts(posts);
+  } catch (e) {
+    console.warn("原創文章讀取失敗", e);
+    window.BTKAddPosts && window.BTKAddPosts([]);
+  }
+}
+loadPosts();
 
 window.BTKCommunity = { mountComments, unmountComments, trackView };
 window.dispatchEvent(new Event("btk-community-ready"));

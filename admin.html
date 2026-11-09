@@ -57,6 +57,29 @@
     .grid2 { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; }
     .grid2 .card { margin-top:20px; }
     .muted { color:var(--ink-3); }
+    .tabs { display:flex; gap:8px; margin-bottom:18px; }
+    .tab { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:99px; padding:9px 22px; font:inherit; font-weight:700; cursor:pointer; }
+    .tab.on { background:#1f2b31; color:#fff; border-color:#1f2b31; }
+    .pform { display:flex; flex-direction:column; gap:14px; }
+    .pform label { display:flex; flex-direction:column; gap:6px; font-weight:700; font-size:15px; }
+    .pform input, .pform select, .pform textarea { font:inherit; font-weight:400; font-size:16px; padding:10px 12px; border:1.5px solid var(--line);
+      border-radius:10px; background:var(--bg); color:var(--ink); }
+    .pform textarea { line-height:1.8; resize:vertical; }
+    .prow { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .pimg img { max-width:360px; width:100%; border-radius:10px; display:block; }
+    .pimg button { margin-top:6px; }
+    .pcount { margin:-8px 0 0; text-align:right; font-size:13px; }
+    .pbtns { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn-pri { background:#e11d48; color:#fff; border:0; border-radius:99px; padding:11px 26px; font:inherit; font-weight:900; cursor:pointer; }
+    .btn-sec, .pact button, .pimg button { background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:99px; padding:9px 18px; font:inherit; cursor:pointer; }
+    .pmsg { margin:0; font-weight:700; } .pmsg.ok { color:#16a34a; } .pmsg.err { color:#e11d48; }
+    .pitem { display:flex; gap:14px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+    .pitem img, .pnoimg { width:96px; height:60px; object-fit:cover; border-radius:8px; background:var(--line); display:grid; place-items:center; font-size:24px; }
+    .pinfo { flex:1; min-width:200px; } .pinfo b { display:block; } .pinfo small { color:var(--ink-3); }
+    .pact { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .pact a { color:var(--a); font-weight:700; margin-right:4px; }
+    .pact .danger { color:#e11d48; }
+    .tag-pub { color:#16a34a; font-weight:700; } .tag-draft { color:#d97706; font-weight:700; }
     @media (max-width:860px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } .grid2 { grid-template-columns:1fr; } .tile b { font-size:28px; } }
   </style>
 </head>
