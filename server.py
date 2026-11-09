@@ -354,7 +354,10 @@ def fetch_fb_posts():
 # ---------- 比特王報導（AI 根據新聞標題與摘要，用自己的話重新整理） ----------
 # 使用 Google Gemini 免費額度。金鑰放在 GitHub 秘密設定 GEMINI_API_KEY；沒有金鑰就不會呼叫 AI。
 # 免費額度有每分鐘、每天的次數上限，所以每次更新只寫少量、每則之間稍等，額度用完就停，下次再繼續。
-GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]   # 第一個不能用時，自動試下一個
+MODEL_FLASH = "gemini-3.8-flash"        # 品質較好：用在政治新聞（比特王的重點）
+MODEL_LITE = "gemini-3.5-flash-lite"    # 經濟型：用在其他新聞
+FLASH_CATS = {"politics"}               # 哪些分類用 Flash
+GEMINI_MODELS = [MODEL_LITE, MODEL_FLASH]
 # 免費額度（每個型號）：每分鐘 15 次、每天 500 次
 AI_MAX_PER_RUN = int(os.environ.get("AI_MAX") or 10)   # 每次更新最多寫幾則（手動補寫時可以臨時調高）
 AI_GAP_SECONDS = 4.5           # 每則之間間隔幾秒（每分鐘最多約 13 次，不超過上限）
@@ -437,41 +440,45 @@ def write_reports(final):
     todo = [it for it in newest if not it.get("report")]
     need = ([it for it in todo if it["id"] in home] + [it for it in todo if it["id"] not in home])[:AI_MAX_PER_RUN]
     print(f"  ・比特王報導：首頁還缺 {sum(1 for it in todo if it['id'] in home)} 則，其他 {sum(1 for it in todo if it['id'] not in home)} 則")
-    models = list(GEMINI_MODELS)
-    done = 0
+    dead = set()                                        # 這次更新中已經不能用（額度用完等）的型號
+    done, used = 0, {}
     for i, it in enumerate(need):
         if i:
             time.sleep(AI_GAP_SECONDS)
-        while models:
+        # 政治新聞先用 Flash、其他先用 Lite；用不了就換另一個
+        order = [MODEL_FLASH, MODEL_LITE] if it["cat"] in FLASH_CATS else [MODEL_LITE, MODEL_FLASH]
+        models = [m for m in order if m not in dead]
+        if not models:
+            print("  ・比特王報導：兩個型號的免費額度都用完，下次更新再繼續")
+            break
+        for m in models:
             try:
-                text = gemini_write(key, models[0], it)
+                text = gemini_write(key, m, it)
                 if text:
                     it["report"] = text
                     done += 1
+                    used[m] = used.get(m, 0) + 1
                 break
-            except QuotaUsedUp:                          # 這個型號額度用完 → 換下一個型號
-                print(f"  ・{models[0]} 免費額度暫時用完，改用下一個")
-                models.pop(0)
-                if not models:
-                    print("  ・比特王報導：所有型號的免費額度都用完，下次更新再繼續")
+            except QuotaUsedUp:                          # 這個型號額度用完 → 換另一個
+                print(f"  ・{m} 免費額度暫時用完，改用另一個")
+                dead.add(m)
             except urllib.error.HTTPError as e:
-                if e.code in (400, 403, 404):          # 這個型號不能用 → 換下一個
+                if e.code in (400, 403, 404):          # 這個型號不能用 → 換另一個
                     try:
                         why = json.loads(e.read().decode("utf-8")).get("error", {})
                         why = f"{why.get('status', '')} {why.get('message', '')[:160]}"
                     except Exception:
                         why = ""
-                    print(f"  ・{models[0]} 無法使用（{e.code}）{why}，改用下一個")
-                    models.pop(0)
+                    print(f"  ・{m} 無法使用（{e.code}）{why}，改用另一個")
+                    dead.add(m)
                 else:
                     print(f"  ✗ 比特王報導失敗（{e.code}）")
                     break
             except Exception as e:
                 print(f"  ✗ 比特王報導失敗：{type(e).__name__}")
                 break
-        if not models:
-            break
-    print(f"  ✓ 比特王報導：新寫 {done} 則，共 {sum(1 for it in final if it.get('report'))} 則有報導")
+    print(f"  ✓ 比特王報導：新寫 {done} 則（{'、'.join(f'{k} {v} 則' for k, v in used.items()) or '無'}），"
+          f"共 {sum(1 for it in final if it.get('report'))} 則有報導")
 
 
 VIDEO_BACKUP = os.path.join(ROOT, "videos-backup.json")
