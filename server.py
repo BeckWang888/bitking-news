@@ -297,7 +297,7 @@ def fetch_videos_page():
 # ---------- 比特王 Facebook 粉專貼文 ----------
 # 需要「粉專存取憑證」：放在 GitHub 的秘密設定 FB_PAGE_TOKEN，
 # 或在自己電腦上存成這個資料夾裡的 .fb_token 檔（這個檔不會上傳）
-GRAPH = "https://graph.facebook.com/v22.0"
+GRAPH = "https://graph.facebook.com/v27.0"
 
 
 def fb_token():
