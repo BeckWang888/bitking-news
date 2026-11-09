@@ -34,13 +34,11 @@ jobs:
           path: .cache_images.json
           key: covers-${{ github.run_id }}
           restore-keys: covers-
-      - name: 安裝 AI 套件
-        run: pip install --quiet anthropic
       - name: 抓取最新新聞
         run: python server.py --once
         env:
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - name: 整理要發布的檔案
         run: |
           mkdir _site

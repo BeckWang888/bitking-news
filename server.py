@@ -20,6 +20,7 @@ import ssl
 import sys
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -351,9 +352,11 @@ def fetch_fb_posts():
 
 
 # ---------- 比特王報導（AI 根據新聞標題與摘要，用自己的話重新整理） ----------
-# 需要 Anthropic 的 API 金鑰：放在 GitHub 秘密設定 ANTHROPIC_API_KEY。沒有金鑰就不會呼叫 AI、也不會產生費用。
-AI_MODEL = "claude-opus-5-5"   # 可改成 "claude-sonnet-5-5"（中間）或 "claude-haiku-5-5"（經濟）
-AI_MAX_PER_RUN = 40            # 每次更新最多幫幾則新聞寫報導（控制費用）
+# 使用 Google Gemini 免費額度。金鑰放在 GitHub 秘密設定 GEMINI_API_KEY；沒有金鑰就不會呼叫 AI。
+# 免費額度有每分鐘、每天的次數上限，所以每次更新只寫少量、每則之間稍等，額度用完就停，下次再繼續。
+GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]   # 第一個不能用時，自動試下一個
+AI_MAX_PER_RUN = 5             # 每次更新最多寫幾則
+AI_GAP_SECONDS = 5             # 每則之間間隔幾秒（避免超過每分鐘上限）
 AI_SYSTEM = """你是「比特王新聞網」的新聞編輯。你會收到一則新聞的標題、摘要與原始媒體名稱。
 請用你自己的話，寫一篇約 300 字的繁體中文報導，幫讀者看懂這則新聞：
 1. 先用一兩句話說清楚發生了什麼事。
@@ -361,12 +364,13 @@ AI_SYSTEM = """你是「比特王新聞網」的新聞編輯。你會收到一�
 規則：
 - 只能根據提供的標題與摘要陳述事實，不可以編造摘要裡沒有的數字、日期、人名、引言或細節；背景說明用一般性的常識，不確定就不要寫。
 - 不要逐句改寫或照抄摘要，要用自己的結構與文字重新說明。
-- 語氣客觀、清楚、口語好讀；段落之間空一行；不要加標題、不要列點符號、不要寫「根據報導」以外的出處。
+- 一定要用台灣慣用的繁體中文。
+- 語氣客觀、清楚、口語好讀；段落之間空一行；不要加標題、不要列點符號、不要用 Markdown 符號。
 - 只輸出報導本文。"""
 
 
 def previous_reports():
-    """沿用之前已經寫好的報導（本機的 news.json 與正式網站上的），避免重複花錢"""
+    """沿用之前已經寫好的報導（本機的 news.json 與正式網站上的），避免重複呼叫 AI"""
     old = {}
     for src in ("local", "live"):
         try:
@@ -379,51 +383,74 @@ def previous_reports():
     return old
 
 
+class QuotaUsedUp(Exception):
+    pass
+
+
+def gemini_write(key, model, it):
+    prompt = f"新聞標題：{it['title']}\n原始媒體：{it['source']}\n新聞摘要：{it['summary']}"
+    body = json.dumps({
+        "systemInstruction": {"parts": [{"text": AI_SYSTEM}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.7},
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        data=body, method="POST",
+        headers={"Content-Type": "application/json", "x-goog-api-key": key})
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            raise QuotaUsedUp()
+        raise
+    cand = (data.get("candidates") or [{}])[0]
+    if cand.get("finishReason") not in (None, "STOP"):
+        return None
+    parts = (cand.get("content") or {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
+    text = re.sub(r"[*#`]+", "", text)              # 去掉 AI 偶爾加的符號
+    return text if len(text) >= 80 else None
+
+
 def write_reports(final):
     old = previous_reports()
     for it in final:
         if it["id"] in old:
             it["report"] = old[it["id"]]
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(f"  ・比特王報導：沒有 AI 金鑰，沿用舊報導 {sum(1 for it in final if it.get('report'))} 則")
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not key:
+        print(f"  ・比特王報導：沒有 Gemini 金鑰，沿用舊報導 {sum(1 for it in final if it.get('report'))} 則")
         return
-    try:
-        import anthropic
-    except ImportError:
-        print("  ・比特王報導：沒有安裝 anthropic 套件，略過")
-        return
-    client = anthropic.Anthropic()
     need = sorted([it for it in final if not it.get("report")], key=lambda x: x["time"], reverse=True)[:AI_MAX_PER_RUN]
-
-    def one(it):
-        prompt = f"新聞標題：{it['title']}\n原始媒體：{it['source']}\n新聞摘要：{it['summary']}"
-        try:
-            kwargs = dict(model=AI_MODEL, max_tokens=4000, system=AI_SYSTEM,
-                          output_config={"effort": "low"},
-                          messages=[{"role": "user", "content": prompt}])
-            if AI_MODEL in ("claude-opus-5-5", "claude-sonnet-5-5"):
-                # 萬一 AI 婉拒，由 Anthropic 自動改用其他模型重試
-                r = client.beta.messages.create(betas=["server-side-fallback-2026-07-01"], fallbacks="default", **kwargs)
-            else:
-                r = client.messages.create(**kwargs)
-        except anthropic.RateLimitError:
-            return None
-        except anthropic.APIStatusError as e:
-            print(f"  ✗ 比特王報導失敗（{e.status_code}）")
-            return None
-        except anthropic.APIConnectionError:
-            return None
-        if r.stop_reason in ("refusal", "max_tokens"):
-            return None
-        text = "".join(b.text for b in r.content if b.type == "text").strip()
-        return text or None
-
+    models = list(GEMINI_MODELS)
     done = 0
-    with ThreadPoolExecutor(4) as ex:
-        for it, text in zip(need, ex.map(one, need)):
-            if text:
-                it["report"] = text
-                done += 1
+    for i, it in enumerate(need):
+        if i:
+            time.sleep(AI_GAP_SECONDS)
+        while models:
+            try:
+                text = gemini_write(key, models[0], it)
+                if text:
+                    it["report"] = text
+                    done += 1
+                break
+            except QuotaUsedUp:
+                print("  ・比特王報導：免費額度暫時用完，下次更新再繼續")
+                models = []
+            except urllib.error.HTTPError as e:
+                if e.code in (400, 403, 404):          # 這個型號不能用 → 換下一個
+                    print(f"  ・{models[0]} 無法使用（{e.code}），改用下一個")
+                    models.pop(0)
+                else:
+                    print(f"  ✗ 比特王報導失敗（{e.code}）")
+                    break
+            except Exception as e:
+                print(f"  ✗ 比特王報導失敗：{type(e).__name__}")
+                break
+        if not models:
+            break
     print(f"  ✓ 比特王報導：新寫 {done} 則，共 {sum(1 for it in final if it.get('report'))} 則有報導")
 
 
