@@ -45,6 +45,11 @@
 
   /* ---------- 共用元件 ---------- */
   const tag = c => `<span class="tag" style="--c:${c.color}">${c.name}</span>`;
+  // 留言與流量功能（community.js）載入完成後才執行
+  function comm(fn) {
+    if (window.BTKCommunity) fn(window.BTKCommunity);
+    else window.addEventListener("btk-community-ready", () => fn(window.BTKCommunity), { once: true });
+  }
   const meta = a => `<div class="meta"><span class="src">${esc(a.source)}</span><span>${ago(a.time)}</span></div>`;
 
   function card(a, cls = "") {
@@ -268,10 +273,12 @@
         <button data-share="copy">🔗 複製這篇的連結</button>
       </div>
       <div class="reader-note">※ 比特王新聞網自動彙整各大媒體公開的新聞摘要，文章版權屬原媒體所有。</div>
+      <section class="comments section" id="comments" style="--c:${c.color}"></section>
       ${related.length ? `<section class="related section" style="--c:${c.color}">
         <div class="section-head"><h2><span class="dot"></span>更多${c.name}新聞</h2></div>
         <div class="grid">${related.map(x => card(x)).join("")}</div></section>` : ""}`;
     document.title = `${a.title}｜${SITE.name}`;
+    comm(m => { m.mountComments(a); m.trackView(a); });
     const r = $("#reader");
     r.classList.add("open"); r.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -281,6 +288,7 @@
   }
   function closeReader() {
     const r = $("#reader");
+    if (r.classList.contains("open")) comm(m => m.unmountComments());
     r.classList.remove("open"); r.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
     document.title = `${SITE.name}｜${SITE.slogan}`;
@@ -320,6 +328,7 @@
       renderHome(); setActive("all");
     }
     if (!keepScroll) window.scrollTo({ top: 0, behavior: "instant" });
+    if (!keepScroll) comm(m => m.trackView(null));
   }
 
   function setActive(id) {

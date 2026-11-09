@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>比特王新聞網｜後台</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f4f5f7; --surface:#fff; --ink:#15181c; --ink-2:#4b5563; --ink-3:#8b93a0; --line:#e5e7eb; --brand:#e11d48;
+      --a:#2563eb; --b:#f59e0b; --shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px -10px rgba(0,0,0,.15); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1115; --surface:#181b21; --ink:#f1f2f4; --ink-2:#c3c7cf; --ink-3:#8b93a0; --line:#2a2e36; } }
+    :root[data-theme="dark"] { --bg:#0f1115; --surface:#181b21; --ink:#f1f2f4; --ink-2:#c3c7cf; --ink-3:#8b93a0; --line:#2a2e36; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif; line-height:1.6; }
+    header { background:#1f2b31; color:#fff; }
+    .wrap { max-width:1180px; margin:0 auto; padding:0 16px; }
+    header .wrap { display:flex; align-items:center; gap:14px; height:72px; }
+    header img { width:52px; height:52px; background:#fff; }
+    header h1 { margin:0; font-size:22px; font-weight:900; }
+    header .sp { flex:1; }
+    header button, .btn { border:1px solid rgba(255,255,255,.5); background:transparent; color:inherit; border-radius:99px; padding:6px 16px; font:inherit; cursor:pointer; }
+    main { padding:28px 0 60px; }
+    .center { text-align:center; padding:80px 16px; }
+    .center p { color:var(--ink-2); }
+    .gbtn { display:inline-flex; align-items:center; gap:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+      border-radius:99px; padding:12px 26px; font-size:17px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; font-family:inherit; }
+    .tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+    .tile { background:var(--surface); border-radius:16px; padding:18px 20px; box-shadow:var(--shadow); }
+    .tile small { color:var(--ink-3); font-weight:700; font-size:14px; }
+    .tile b { display:block; font-size:36px; font-weight:900; line-height:1.2; margin-top:4px; font-variant-numeric:tabular-nums; }
+    .tile span { color:var(--ink-3); font-size:13px; }
+    .card { background:var(--surface); border-radius:16px; padding:22px; box-shadow:var(--shadow); margin-top:20px; }
+    .card h2 { margin:0 0 14px; font-size:19px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .legend { display:flex; gap:14px; font-size:13px; font-weight:500; color:var(--ink-2); }
+    .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; }
+    .chart { display:flex; align-items:flex-end; gap:4px; height:220px; padding-top:20px; border-bottom:1px solid var(--line); }
+    .col { flex:1; display:flex; align-items:flex-end; justify-content:center; gap:2px; height:100%; position:relative; cursor:default; }
+    .col .bar { width:45%; max-width:14px; border-radius:4px 4px 0 0; min-height:2px; }
+    .col .v { background:var(--a); } .col .u { background:var(--b); }
+    .col:hover::after { content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%); white-space:nowrap;
+      background:var(--ink); color:var(--bg); font-size:12px; padding:4px 8px; border-radius:6px; margin-bottom:6px; z-index:2; }
+    .xaxis { display:flex; gap:4px; font-size:11px; color:var(--ink-3); margin-top:6px; }
+    .xaxis span { flex:1; text-align:center; }
+    table { width:100%; border-collapse:collapse; font-size:15px; }
+    th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--ink-3); font-size:13px; font-weight:700; }
+    td.n { text-align:right; font-weight:900; font-variant-numeric:tabular-nums; width:80px; }
+    td a { color:inherit; }
+    .cm { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+    .cm img { width:36px; height:36px; border-radius:50%; flex:none; background:var(--line); }
+    .cm .t { flex:1; min-width:0; }
+    .cm .t small { color:var(--ink-3); }
+    .cm .t p { margin:4px 0 0; overflow-wrap:anywhere; }
+    .cm button { border:1px solid var(--line); background:transparent; color:var(--brand); border-radius:8px; padding:4px 10px; cursor:pointer; height:fit-content; font-family:inherit; }
+    .grid2 { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; }
+    .grid2 .card { margin-top:20px; }
+    .muted { color:var(--ink-3); }
+    @media (max-width:860px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } .grid2 { grid-template-columns:1fr; } .tile b { font-size:28px; } }
+  </style>
+</head>
+<body>
+  <header><div class="wrap">
+    <img src="logo.png" alt="比特王"><h1>比特王新聞網 後台</h1><span class="sp"></span>
+    <a class="btn" href="./" style="text-decoration:none">回到網站</a>
+    <button id="logout" hidden>登出</button>
+  </div></header>
+  <main class="wrap" id="app"><div class="center"><p>載入中…</p></div></main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

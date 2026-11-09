@@ -3,3 +3,4 @@ news.json.tmp
 .cache_images.json
 .claude/
 __pycache__/
+firestore.rules

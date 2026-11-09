@@ -1,0 +1,7 @@
+{
+  "indexes": [
+    { "collectionGroup": "comments", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "articleId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}
