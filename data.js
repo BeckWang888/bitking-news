@@ -191,3 +191,6 @@ const TICKER_ADS = [
 
 /* 比特王 Facebook 粉絲專頁 */
 const FB_PAGE = "https://www.facebook.com/Bitking.Mission";
+
+/* 比特王 LINE 群組：把邀請連結貼在這裡（https://line.me/... 開頭），留空就不顯示按鈕 */
+const LINE_GROUP_URL = "";

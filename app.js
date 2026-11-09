@@ -82,11 +82,26 @@
 
   const inCat = id => ARTS.filter(a => a.cat === id).sort(byTime);
 
+  // 比特王 LINE 群組
+  const LINE_ICON = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="11" fill="#06C755"/>
+    <path fill="#fff" d="M24 9.5c-9.1 0-16.5 6-16.5 13.4 0 6.6 5.9 12.2 13.8 13.2.5.1 1.3.4 1.5.9.2.5.1 1.2 0 1.7l-.2 1.4c-.1.4-.3 1.6 1.4.9 1.7-.7 9.1-5.4 12.4-9.2 2.3-2.5 3.4-5.1 3.4-7.9C40.5 15.5 33.1 9.5 24 9.5z"/>
+    <text x="24" y="27" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="9.5" fill="#06C755">LINE</text></svg>`;
+  const lineUrl = () => (typeof LINE_GROUP_URL !== "undefined" && LINE_GROUP_URL) ? LINE_GROUP_URL : "";
+  function lineCard() {
+    if (!lineUrl()) return "";
+    return `<section class="line-card">
+      <div class="line-card-top">${LINE_ICON}<div><b>比特王 LINE 群組</b><small>歡迎加入一起討論！</small></div></div>
+      <p>發言請簡短，讓大家都看得清楚 🙏</p>
+      <a class="line-btn" href="${esc(lineUrl())}" target="_blank" rel="noopener">加入群組</a>
+    </section>`;
+  }
+
   function sidebar(excludeCat) {
     // 各類焦點：每個分類挑一則最新的
     const picks = NEWS_CATS.filter(c => c.id !== excludeCat)
       .map(c => inCat(c.id)[1] || inCat(c.id)[0]).filter(Boolean);
     return `<aside class="sidebar">
+      ${lineCard()}
       <section class="panel"><h3 class="panel-title">各類焦點</h3>
         <ol class="rank">${picks.map(a =>
           `<li><a href="#news/${a.id}"><div><span>${esc(a.title)}</span><small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}・${ago(a.time)}</small></div></a></li>`
@@ -718,6 +733,13 @@
     }, { passive: true });
     toTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
     $("#toast").onclick = applyPending;
+    if (lineUrl()) {
+      const f = document.createElement("a");
+      f.className = "line-float"; f.href = lineUrl(); f.target = "_blank"; f.rel = "noopener";
+      f.setAttribute("aria-label", "加入比特王 LINE 群組討論");
+      f.innerHTML = `${LINE_ICON}<span>加入群組討論</span>`;
+      document.body.appendChild(f);
+    }
 
     try { useData(await loadNews()); } catch (e) { useDemo(); }
 

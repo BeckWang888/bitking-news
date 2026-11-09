@@ -672,3 +672,23 @@ img { display: block; max-width: 100%; }
   .catnav-inner { justify-content: flex-start;
     -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
 }
+
+/* ---------- 比特王 LINE 群組 ---------- */
+.line-card { background: linear-gradient(150deg, #06C755, #04a447); color: #fff; border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+.line-card-top { display: flex; align-items: center; gap: 12px; }
+.line-card-top svg { width: 48px; height: 48px; flex: none; border-radius: 11px; box-shadow: 0 0 0 2px rgba(255,255,255,.6); }
+.line-card-top b { display: block; font-size: 18px; font-weight: 900; }
+.line-card-top small { font-size: 14px; opacity: .95; }
+.line-card p { margin: 10px 0 12px; font-size: 14px; opacity: .92; }
+.line-btn { display: block; text-align: center; background: #fff; color: #06a34a; font-weight: 900; font-size: 16px;
+  padding: 10px; border-radius: 99px; transition: transform .15s; }
+.line-btn:hover { transform: translateY(-1px); }
+.line-float { position: fixed; right: 22px; bottom: 86px; z-index: 61; display: flex; align-items: center; gap: 8px;
+  background: #fff; color: #06a34a; font-weight: 900; font-size: 15px; padding: 6px 16px 6px 6px; border-radius: 99px;
+  box-shadow: 0 10px 26px -8px rgba(0,0,0,.45); border: 2px solid #06C755; transition: transform .2s; }
+.line-float:hover { transform: translateY(-2px); }
+.line-float svg { width: 38px; height: 38px; border-radius: 50%; }
+@media (max-width: 720px) {
+  .line-float { right: 14px; bottom: 80px; padding: 5px 12px 5px 5px; font-size: 13px; }
+  .line-float svg { width: 32px; height: 32px; }
+}
