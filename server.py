@@ -36,7 +36,10 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) BitKingNews/1.0"}
 
 # ---------- 比特王 YouTube 頻道 ----------
 YT_CHANNEL_ID = "UCJHq28mKJowPCGQ0WDIDU9A"   # Bit King比特王出任務
-YT_FEED = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CHANNEL_ID
+YT_FEEDS = [                                   # 兩種官方訂閱網址輪流試
+    "https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CHANNEL_ID,
+    "https://www.youtube.com/feeds/videos.xml?playlist_id=UU" + YT_CHANNEL_ID[2:],
+]
 
 # ---------- 每個分類要抓哪些來源 ----------
 # 主要來源：聯合報（每類保留約一半的版面給聯合報）
@@ -187,17 +190,18 @@ def parse_udn(cat, cate_id, pages=2):
 
 def fetch_videos():
     """比特王頻道最新影片（YouTube 官方公開的頻道訂閱，最多 15 支）"""
-    xml = None
-    for attempt in range(4):                        # YouTube 偶爾會暫時失敗，多試幾次
+    xml, err = None, ""
+    for attempt in range(6):                        # YouTube 偶爾會暫時失敗，多試幾次
         try:
-            xml = fetch(YT_FEED)
+            xml = fetch(YT_FEEDS[attempt % len(YT_FEEDS)])
             if "<entry>" in xml:
                 break
+            err = "內容沒有影片"
         except Exception as e:
-            err = e
-        time.sleep(1.5)
+            err = str(e)
+        time.sleep(2 + attempt * 2)
     if not xml or "<entry>" not in xml:
-        print("  ✗ 比特王頻道 抓取失敗，沿用上次的影片清單")
+        print(f"  ✗ 比特王頻道 抓取失敗（{err}），改用備援影片清單")
         return None
     vids = []
     for block in re.findall(r"<entry>.*?</entry>", xml, re.S):
@@ -214,6 +218,34 @@ def fetch_videos():
         })
     print(f"  ✓ 比特王頻道 {len(vids)} 支影片")
     return vids
+
+
+VIDEO_BACKUP = os.path.join(ROOT, "videos-backup.json")
+LIVE_SITE = "https://beckwang888.github.io/bitking-news/news.json"
+
+
+def backup_videos():
+    """抓不到 YouTube 時：依序改用 上次的 news.json → 正式網站目前的清單 → 備援清單檔"""
+    cands = []
+    try:
+        cands.append(json.load(open(OUT, encoding="utf-8")).get("videos", []))
+    except Exception:
+        pass
+    try:
+        cands.append(json.loads(fetch(LIVE_SITE)).get("videos", []))
+    except Exception:
+        pass
+    try:
+        cands.append(json.load(open(VIDEO_BACKUP, encoding="utf-8")))
+    except Exception:
+        pass
+    # 選「最新一支影片時間最晚」的那份
+    cands = [c for c in cands if c]
+    if not cands:
+        return []
+    best = max(cands, key=lambda c: max(v.get("time", "") for v in c))
+    print(f"  ↺ 使用備援影片清單（{len(best)} 支）")
+    return best
 
 
 def find_cover(link):
@@ -285,11 +317,13 @@ def build():
         print("  ⚠ 這次沒有抓到任何新聞（可能是網路問題），保留舊資料。")
         return
     videos = fetch_videos()
-    if videos is None:                              # 這次沒抓到影片就沿用上次的
-        try:
-            videos = json.load(open(OUT, encoding="utf-8")).get("videos", [])
+    if videos:
+        try:                                        # 存一份備援清單，下次抓不到時使用
+            json.dump(videos, open(VIDEO_BACKUP, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         except Exception:
-            videos = []
+            pass
+    else:
+        videos = backup_videos()
     data = {"updated": datetime.now(TW).strftime("%Y-%m-%d %H:%M:%S"), "articles": final, "videos": videos,
             "channel": "https://www.youtube.com/channel/" + YT_CHANNEL_ID}
     tmp = OUT + ".tmp"
