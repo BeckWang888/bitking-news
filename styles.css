@@ -577,3 +577,15 @@ img { display: block; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .ticker-label i, .toast i, .live { animation: none !important; }
 }
+
+/* ---------- 比特王報導（AI 協助整理） ---------- */
+.src-summary { background: var(--surface-2); border-radius: 12px; padding: 14px 18px; margin: 0 0 24px; }
+.src-summary span { font-size: 13px; font-weight: 700; color: var(--ink-3); }
+.src-summary p { margin: 6px 0 0; color: var(--ink-2); font-size: 16px; line-height: 1.8; }
+.our-report { border-top: 4px solid var(--c); padding-top: 18px; margin-bottom: 26px; }
+.our-report h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 24px; font-weight: 900; }
+.our-report h2 img { width: 36px; height: 36px; object-fit: contain; }
+.our-report .reader-body p { color: var(--ink); }
+.ai-note { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); }
+.card .rep-badge { position: absolute; right: 10px; top: 10px; background: #1f2b31; color: #fff; font-size: 12px; font-weight: 900;
+  padding: 3px 9px; border-radius: 6px; }

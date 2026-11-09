@@ -63,7 +63,7 @@
   function card(a, cls = "") {
     const c = catOf(a.cat);
     return `<article class="card ${cls} fade-in" style="--c:${c.color}" data-id="${a.id}" tabindex="0">
-      <div class="thumb">${ph(a)}${imgTag(a, !cls)}${tag(c)}${a.original ? `<span class="orig-badge">✍ 比特王原創</span>` : ""}</div>
+      <div class="thumb">${ph(a)}${imgTag(a, !cls)}${tag(c)}${a.original ? `<span class="orig-badge">✍ 比特王原創</span>` : a.report ? `<span class="rep-badge">比特王報導</span>` : ""}</div>
       <div class="card-body">
         <h3>${esc(a.title)}</h3>
         <p>${esc(a.summary)}</p>
@@ -449,9 +449,15 @@
       ${a.body ? `${a.summary ? `<p class="reader-lead">${esc(a.summary)}</p>` : ""}
         <div class="reader-body">${renderBody(a.body)}</div>
         <div class="orig-note">✍ 本文為比特王新聞網原創內容，轉載請註明出處。</div>`
+      : a.report ? `<div class="src-summary"><span>原始新聞摘要・${esc(a.source)}</span><p>${esc(a.summary)}</p></div>
+        <section class="our-report">
+          <h2><img src="logo.png" alt="">比特王報導</h2>
+          <div class="reader-body">${renderBody(a.report)}</div>
+          <p class="ai-note">本段由比特王新聞網以 AI 協助整理，事實內容以原始報導為準。</p>
+        </section>`
       : `<p class="reader-lead">${esc(a.summary)}</p>`}
       ${a.link ? `<a class="read-full" href="${esc(a.link)}" target="_blank" rel="noopener">
-          <span><small>完整報導請至</small>${esc(a.source)} 閱讀全文</span><b>↗</b></a>` : ""}
+          <span><small>原始報導請至</small>${esc(a.source)} 閱讀</span><b>↗</b></a>` : ""}
       <div class="reader-share">
         <button data-share="copy">🔗 複製這篇的連結</button>
       </div>
