@@ -250,23 +250,13 @@
   // 比特王 Facebook：使用 Facebook 官方的「粉絲專頁外掛程式」顯示最新貼文
   function fbSection() {
     if (typeof FB_PAGE === "undefined") return "";
-    const src = "https://www.facebook.com/plugins/page.php?href=" + encodeURIComponent(FB_PAGE) +
-      "&tabs=timeline&width=500&height=420&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&locale=zh_TW";
     return `<section class="section fbsec" style="--c:#1877f2">
-      <div class="section-head">
-        <h2><span class="fb-ico">f</span>比特王 Facebook</h2>
-        <a class="more" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">到粉絲專頁 →</a>
-      </div>
-      <div class="fb-row">
-        <div class="fb-frame"><iframe src="${src}" title="比特王 Facebook 最新貼文" loading="lazy"
-          scrolling="yes" allow="encrypted-media; clipboard-write; picture-in-picture; web-share"></iframe></div>
-        <div class="fb-card">
-          <img src="logo.png" alt="比特王">
-          <h3>比特王出任務</h3>
-          <p>每天第一手的政治現場、造勢直擊與深度評論，都在比特王粉絲專頁。按讚追蹤，最新貼文不漏接！</p>
-          <a class="fb-btn" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">👍 按讚追蹤粉專</a>
-          <a class="sub-btn" href="${esc(CHANNEL)}?sub_confirmation=1" target="_blank" rel="noopener">▶ 訂閱 YouTube 頻道</a>
-        </div>
+      <div class="fb-banner">
+        <span class="fb-ico big">f</span>
+        <img src="logo.png" alt="比特王">
+        <div class="fb-txt"><h3>比特王 Facebook 粉絲專頁</h3>
+          <p>政治現場、造勢直擊與深度評論，最新貼文都在粉專，按讚追蹤不漏接！</p></div>
+        <a class="fb-btn" href="${esc(FB_PAGE)}" target="_blank" rel="noopener">👍 前往粉專看最新貼文</a>
       </div>
     </section>`;
   }

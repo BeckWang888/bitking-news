@@ -521,3 +521,12 @@ img { display: block; max-width: 100%; }
   .fb-row { grid-template-columns: 1fr; }
   .fb-frame { height: 460px; }
 }
+
+.fb-banner { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 18px 24px; border-radius: 16px;
+  background: linear-gradient(120deg, #1877f2, #0b4fb3); color: #fff; box-shadow: var(--shadow); }
+.fb-banner img { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 8px; }
+.fb-ico.big { width: 44px; height: 44px; font-size: 28px; background: #fff; color: #1877f2; }
+.fb-txt { flex: 1; min-width: 220px; }
+.fb-txt h3 { margin: 0; font-size: 20px; font-weight: 900; }
+.fb-txt p { margin: 4px 0 0; opacity: .9; font-size: 15px; }
+.fb-banner .fb-btn { margin-top: 0; }
