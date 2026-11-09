@@ -660,7 +660,11 @@
       if (el) openArticle(el.dataset.id);
       const share = e.target.closest("[data-share]");
       if (share) {
-        navigator.clipboard?.writeText(location.href).then(() => {
+        // 一般新聞複製「獨立網頁」網址，貼到 LINE／FB 會有標題和照片預覽
+        const id = (location.hash.match(/^#news\/(.+)$/) || [])[1];
+        const base = location.origin + location.pathname.replace(/[^/]*$/, "");
+        const shareUrl = id && !id.startsWith("p_") ? `${base}news/${id}.html` : location.href;
+        navigator.clipboard?.writeText(shareUrl).then(() => {
           share.textContent = "✓ 已複製"; setTimeout(() => share.textContent = "🔗 複製這篇的連結", 1500);
         }).catch(() => {});
       }

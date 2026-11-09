@@ -7,3 +7,5 @@ firestore.rules
 .fb_token
 pulse.json
 pool.json
+_site/
+archive.json
