@@ -34,6 +34,10 @@ PER_CATEGORY = 24         # 每個分類保留幾則
 TW = timezone(timedelta(hours=8))
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) BitKingNews/1.0"}
 
+# ---------- 比特王 YouTube 頻道 ----------
+YT_CHANNEL_ID = "UCJHq28mKJowPCGQ0WDIDU9A"   # Bit King比特王出任務
+YT_FEED = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YT_CHANNEL_ID
+
 # ---------- 每個分類要抓哪些來源 ----------
 # 主要來源：聯合報（每類保留約一半的版面給聯合報）
 # 輔助來源：ETtoday、中央社、科技新報；財經另加非凡新聞
@@ -181,6 +185,37 @@ def parse_udn(cat, cate_id, pages=2):
     return items
 
 
+def fetch_videos():
+    """比特王頻道最新影片（YouTube 官方公開的頻道訂閱，最多 15 支）"""
+    xml = None
+    for attempt in range(4):                        # YouTube 偶爾會暫時失敗，多試幾次
+        try:
+            xml = fetch(YT_FEED)
+            if "<entry>" in xml:
+                break
+        except Exception as e:
+            err = e
+        time.sleep(1.5)
+    if not xml or "<entry>" not in xml:
+        print("  ✗ 比特王頻道 抓取失敗，沿用上次的影片清單")
+        return None
+    vids = []
+    for block in re.findall(r"<entry>.*?</entry>", xml, re.S):
+        vid = clean(tag(block, "yt:videoId"))
+        if not vid:
+            continue
+        views = re.search(r'<media:statistics views="(\d+)"', block)
+        vids.append({
+            "id": vid,
+            "title": clean(tag(block, "title")),
+            "time": parse_time(tag(block, "published")).strftime("%Y-%m-%d %H:%M"),
+            "views": int(views.group(1)) if views else 0,
+            "desc": summarize(clean(tag(block, "media:description")), 120),
+        })
+    print(f"  ✓ 比特王頻道 {len(vids)} 支影片")
+    return vids
+
+
 def find_cover(link):
     """沒有附圖的新聞，到原文頁面找封面圖（og:image）"""
     try:
@@ -249,7 +284,14 @@ def build():
     if not final:
         print("  ⚠ 這次沒有抓到任何新聞（可能是網路問題），保留舊資料。")
         return
-    data = {"updated": datetime.now(TW).strftime("%Y-%m-%d %H:%M:%S"), "articles": final}
+    videos = fetch_videos()
+    if videos is None:                              # 這次沒抓到影片就沿用上次的
+        try:
+            videos = json.load(open(OUT, encoding="utf-8")).get("videos", [])
+        except Exception:
+            videos = []
+    data = {"updated": datetime.now(TW).strftime("%Y-%m-%d %H:%M:%S"), "articles": final, "videos": videos,
+            "channel": "https://www.youtube.com/channel/" + YT_CHANNEL_ID}
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))

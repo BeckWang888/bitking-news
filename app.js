@@ -13,6 +13,9 @@
   const byTime = (a, b) => b.time.localeCompare(a.time);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
+  const NEWS_CATS = CATEGORIES.filter(c => c.id !== "all" && !c.video);   // 新聞分類（不含首頁與頻道）
+  let VIDEOS = [];        // 比特王頻道影片
+  let CHANNEL = "https://www.youtube.com/@bitking888";
   let ARTS = [];          // 目前顯示的新聞
   let UPDATED = "";       // 新聞最後更新時間
   let DEMO = false;       // 是否正在顯示備用示範新聞
@@ -76,7 +79,7 @@
 
   function sidebar(excludeCat) {
     // 各類焦點：每個分類挑一則最新的
-    const picks = CATEGORIES.slice(1).filter(c => c.id !== excludeCat)
+    const picks = NEWS_CATS.filter(c => c.id !== excludeCat)
       .map(c => inCat(c.id)[1] || inCat(c.id)[0]).filter(Boolean);
     return `<aside class="sidebar">
       <section class="panel"><h3 class="panel-title">各類焦點</h3>
@@ -85,7 +88,7 @@
         ).join("")}</ol>
       </section>
       <section class="panel"><h3 class="panel-title">逛逛分類</h3>
-        <div class="cat-cloud">${CATEGORIES.slice(1).map(c =>
+        <div class="cat-cloud">${NEWS_CATS.map(c =>
           `<button style="--c:${c.color}" data-cat="${c.id}">${c.icon} ${c.name}</button>`).join("")}</div>
       </section>
       <section class="panel sources"><h3 class="panel-title">新聞來源</h3>
@@ -97,11 +100,11 @@
   /* ---------- 首頁 ---------- */
   function renderHome() {
     // 輪播：每個分類挑一則最新、有圖的新聞
-    const slides = CATEGORIES.slice(1).map(c => inCat(c.id).find(hasImg)).filter(Boolean).sort(byTime).slice(0, 8);
+    const slides = NEWS_CATS.map(c => inCat(c.id).find(hasImg)).filter(Boolean).sort(byTime).slice(0, 8);
     const used = new Set(slides.map(a => a.id));
     const latest = [...ARTS].sort(byTime).slice(0, 12);
 
-    const sections = CATEGORIES.slice(1).map(c => {
+    const sections = NEWS_CATS.map(c => {
       const list = inCat(c.id).filter(a => !used.has(a.id));
       if (!list.length) return "";
       const big = list.find(hasImg) || list[0];
@@ -141,11 +144,14 @@
             `<li><a href="#news/${a.id}"><time>${hhmm(a.time)}</time><span>${esc(a.title)}<small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}</small></span></a></li>`).join("")}</ul>
         </aside>
       </div>
+      ${channelSection()}
       <div class="home-layout">
         <div>${sections}</div>
         ${sidebar()}
-      </div>`;
+      </div>
+      ${tvScreen()}`;
     startSlider();
+    startTv();
   }
 
   /* ---------- 輪播橫幅 ---------- */
@@ -208,6 +214,91 @@
     document.onvisibilitychange = () => document.hidden ? pause() : resume();
 
     go(0);
+  }
+
+  /* ---------- 比特王頻道 ---------- */
+  const thumb = (v, big) => `https://i.ytimg.com/vi/${v.id}/${big ? "maxresdefault" : "hqdefault"}.jpg`;
+  const views = n => n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)} 萬次觀看` : `${n || 0} 次觀看`;
+  const PLAY = `<span class="play"><svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-3-5.2-5.9-6C55.3.3 34 .3 34 .3S12.7.3 7.4 1.7c-2.9.8-5.1 3.1-5.9 6C.1 13 .1 24 .1 24s0 11 1.4 16.3c.8 2.9 3 5.2 5.9 6C12.7 47.7 34 47.7 34 47.7s21.3 0 26.6-1.4c2.9-.8 5.1-3.1 5.9-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#e11d48"/><path d="M45 24 27 14v20z" fill="#fff"/></svg></span>`;
+
+  function vcard(v, big) {
+    return `<article class="vcard${big ? " big" : ""} fade-in" data-vid="${esc(v.id)}" tabindex="0">
+      <div class="vthumb"><img src="${thumb(v, big)}" alt="" loading="lazy" referrerpolicy="no-referrer"
+        onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${thumb(v, false)}'}">${PLAY}
+        ${big ? `<span class="vnew">最新上傳</span>` : ""}</div>
+      <div class="vbody"><h3>${esc(v.title)}</h3>
+        <div class="meta"><span class="src">${views(v.views)}</span><span>${ago(v.time)}</span></div></div>
+    </article>`;
+  }
+
+  function channelSection() {
+    if (!VIDEOS.length) return "";
+    return `<section class="section channel" style="--c:#1f2b31">
+      <div class="section-head">
+        <h2><img class="ch-logo" src="logo.png" alt="">比特王頻道</h2>
+        <a class="more" href="#cat/channel">看全部影片 →</a>
+      </div>
+      <div class="ch-grid">
+        ${vcard(VIDEOS[0], true)}
+        <div class="ch-list">${VIDEOS.slice(1, 7).map(v => vcard(v)).join("")}</div>
+      </div>
+    </section>`;
+  }
+
+  function renderChannel() {
+    $("#main").innerHTML = `
+      <div class="cat-hero ch-hero fade-in" style="--c:#1f2b31">
+        <img src="logo.png" alt="比特王">
+        <div><h1>比特王頻道</h1><p>Bit King 比特王出任務・最新 ${VIDEOS.length} 支影片</p></div>
+        <a class="sub-btn" href="${esc(CHANNEL)}?sub_confirmation=1" target="_blank" rel="noopener">▶ 訂閱頻道</a>
+      </div>
+      ${VIDEOS.length ? `<div class="grid vgrid">${VIDEOS.map((v, i) => vcard(v, i === 0)).join("")}</div>`
+        : `<div class="empty"><b>📺</b>影片清單載入中，請稍後再來</div>`}`;
+  }
+
+  // 底部大螢幕：捲動到附近才開始播放（靜音）
+  function tvScreen() {
+    if (!VIDEOS.length) return "";
+    const v = VIDEOS[0];
+    return `<section class="tv">
+      <div class="tv-head"><img src="logo.png" alt=""><div><small>比特王頻道・最新影片</small><h2>${esc(v.title)}</h2></div>
+        <a class="sub-btn" href="${esc(CHANNEL)}?sub_confirmation=1" target="_blank" rel="noopener">▶ 訂閱頻道</a></div>
+      <div class="tv-frame"><div class="tv-screen" id="tvScreen" data-id="${esc(v.id)}">
+        <img src="${thumb(v, true)}" alt="" referrerpolicy="no-referrer" onerror="this.src='${thumb(v, false)}'"></div></div>
+      <p class="tv-tip">🔇 影片預設靜音播放，要聽聲音請點畫面上的喇叭圖示。</p>
+    </section>`;
+  }
+  function startTv() {
+    const el = $("#tvScreen");
+    if (!el) return;
+    const load = () => {
+      if (el.dataset.on) return;
+      el.dataset.on = 1;
+      el.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${el.dataset.id}?autoplay=1&mute=1&playsinline=1&rel=0"
+        title="比特王頻道最新影片" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    };
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { load(); io.disconnect(); } }, { rootMargin: "300px" });
+      io.observe(el);
+    } else load();
+  }
+
+  // 點影片：跳出播放視窗（有聲音）
+  function openVideo(id) {
+    const v = VIDEOS.find(x => x.id === id);
+    if (!v) return;
+    $("#vmodalFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&playsinline=1&rel=0"
+      title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    $("#vmodalTitle").textContent = v.title;
+    $("#vmodalMeta").textContent = `${views(v.views)}・${ago(v.time)}`;
+    $("#vmodalLink").href = `https://www.youtube.com/watch?v=${v.id}`;
+    $("#vmodal").classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeVideo() {
+    $("#vmodal").classList.remove("open");
+    $("#vmodalFrame").innerHTML = "";
+    if (!$("#reader").classList.contains("open")) document.body.style.overflow = "";
   }
 
   /* ---------- 分類頁 ---------- */
@@ -320,7 +411,9 @@
     const keepScroll = force === true;
     currentView = view;
 
-    if (type === "cat" && CATEGORIES.some(c => c.id === arg && arg !== "all")) {
+    if (type === "cat" && arg === "channel") {
+      renderChannel(); setActive("channel");
+    } else if (type === "cat" && CATEGORIES.some(c => c.id === arg && arg !== "all")) {
       renderCategory(arg); setActive(arg);
     } else if (type === "search" && arg) {
       renderSearch(arg); setActive(null);
@@ -349,6 +442,7 @@
   }
   function useData(d) {
     ARTS = d.articles; UPDATED = d.updated; DEMO = false;
+    VIDEOS = d.videos || []; if (d.channel) CHANNEL = d.channel;
     $("#updated").textContent = `新聞更新於 ${UPDATED.slice(11, 16)}`;
     paintTicker();
   }
@@ -395,11 +489,14 @@
     $("#catList").innerHTML = CATEGORIES.map(c =>
       `<a class="cat-pill" style="--c:${c.color}" data-cat="${c.id}" href="${c.id === "all" ? "#" : "#cat/" + c.id}">
         <span class="ic">${c.icon}</span>${c.name}</a>`).join("");
-    $("#footerCats").innerHTML = CATEGORIES.slice(1).map(c => `<a href="#cat/${c.id}">${c.name}</a>`).join("");
+    $("#footerCats").innerHTML = NEWS_CATS.map(c => `<a href="#cat/${c.id}">${c.name}</a>`).join("");
 
     document.addEventListener("click", e => {
       const catBtn = e.target.closest("[data-cat]:not(a)");
       if (catBtn) { location.hash = `cat/${catBtn.dataset.cat}`; return; }
+      const vc = e.target.closest("[data-vid]");
+      if (vc) { openVideo(vc.dataset.vid); return; }
+      if (e.target.closest("#vmodalClose") || e.target.id === "vmodal") { closeVideo(); return; }
       const el = e.target.closest(".card[data-id], .mini[data-id]");
       if (el) openArticle(el.dataset.id);
       const share = e.target.closest("[data-share]");
@@ -411,6 +508,8 @@
     });
     document.addEventListener("keydown", e => {
       if (e.key === "Enter" && e.target.matches(".card[data-id], .mini[data-id]")) openArticle(e.target.dataset.id);
+      if (e.key === "Enter" && e.target.matches("[data-vid]")) openVideo(e.target.dataset.vid);
+      if (e.key === "Escape" && $("#vmodal").classList.contains("open")) { closeVideo(); return; }
       if (e.key === "Escape" && $("#reader").classList.contains("open")) $("#readerClose").click();
     });
 

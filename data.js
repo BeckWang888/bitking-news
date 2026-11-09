@@ -19,6 +19,7 @@ const SITE = {
 
 const CATEGORIES = [
   { id: "all",      name: "首頁",   color: "#e11d48", icon: "◆" },
+  { id: "channel",  name: "比特王頻道", color: "#1f2b31", icon: "▶", video: true },
   { id: "politics", name: "政治",   color: "#dc2626", icon: "⚖" },
   { id: "society",  name: "社會",   color: "#475569", icon: "📰" },
   { id: "world",    name: "國際",   color: "#2563eb", icon: "🌐" },
