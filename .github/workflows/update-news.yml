@@ -15,13 +15,13 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # 同一時間只發布一次（新的會排在舊的後面，不會互相打架）
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -59,12 +59,24 @@ jobs:
     needs: build-and-deploy
     if: always()
     runs-on: ubuntu-latest
+    # 只保留一條接力：新的一輪開始等待時，舊的等待會被取消
+    concurrency:
+      group: next-round
+      cancel-in-progress: true
     permissions:
       actions: write
     steps:
       - name: 等待約 13 分鐘
         run: sleep 780
-      - name: 觸發下一次更新
-        run: gh workflow run update-news.yml --repo "$GITHUB_REPOSITORY" --ref main
+      - name: 觸發下一次更新（已經有更新的一輪在跑就不觸發，避免重複）
+        run: |
+          me=$(gh run view "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --json createdAt -q .createdAt)
+          newer=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow update-news.yml -L 20 \
+                  --json createdAt,status -q "[.[] | select(.createdAt > \"$me\" and .status != \"completed\")] | length")
+          if [ "$newer" -gt 0 ]; then
+            echo "已經有更新的一輪在進行，這一輪不再接力"
+          else
+            gh workflow run update-news.yml --repo "$GITHUB_REPOSITORY" --ref main
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
