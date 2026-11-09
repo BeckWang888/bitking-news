@@ -1,0 +1,48 @@
+# 比特王新聞網：每 15 分鐘自動抓新聞並更新網站（GitHub Pages）
+name: 更新新聞並發布網站
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 記住找過的封面圖
+        uses: actions/cache@v4
+        with:
+          path: .cache_images.json
+          key: covers-${{ github.run_id }}
+          restore-keys: covers-
+      - name: 抓取最新新聞
+        run: python server.py --once
+      - name: 整理要發布的檔案
+        run: |
+          mkdir _site
+          cp index.html styles.css app.js data.js logo.svg news.json _site/
+          [ -f logo.png ] && cp logo.png _site/ || true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

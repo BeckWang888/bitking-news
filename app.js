@@ -1,0 +1,459 @@
+/* ============================================================
+   比特王新聞網 — 網站運作邏輯
+   新聞來自 news.json（由 server.py 自動抓取更新）
+   網址規則：
+     #            首頁
+     #cat/tech    某個分類
+     #search/字   搜尋結果
+     #news/編號   閱讀某篇新聞
+   ============================================================ */
+(() => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const catOf = id => CATEGORIES.find(c => c.id === id) || CATEGORIES[0];
+  const byTime = (a, b) => b.time.localeCompare(a.time);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+
+  let ARTS = [];          // 目前顯示的新聞
+  let UPDATED = "";       // 新聞最後更新時間
+  let DEMO = false;       // 是否正在顯示備用示範新聞
+
+  /* ---------- 圖片 ---------- */
+  function imgUrl(a, small) {
+    if (typeof a.img === "number") return `https://picsum.photos/id/${a.img}/${small ? "640/400" : "1400/875"}`;
+    if (!a.img) return "";
+    if (small && a.img.includes("ettoday.net/images")) return a.img.replace(/\/e(\d+\.\w+)$/, "/d$1");
+    return a.img;
+  }
+  const hasImg = a => !!imgUrl(a);
+  function imgTag(a, small, eager) {
+    const u = imgUrl(a, small);
+    return u ? `<img src="${esc(u)}" alt="" referrerpolicy="no-referrer" ${eager ? "" : 'loading="lazy"'} onerror="this.remove()">` : "";
+  }
+  // 沒有圖片時顯示的分類圖示底圖
+  const ph = a => `<span class="ph"><b>${catOf(a.cat).icon}</b><small>${esc(a.source || SITE.name)}</small></span>`;
+
+  /* ---------- 時間 ---------- */
+  function ago(t) {
+    const d = new Date(t.replace(" ", "T") + "+08:00");
+    const m = Math.round((Date.now() - d) / 60000);
+    if (m < 1) return "剛剛";
+    if (m < 60) return `${m} 分鐘前`;
+    if (m < 60 * 24) return `${Math.floor(m / 60)} 小時前`;
+    return `${Math.floor(m / 1440)} 天前`;
+  }
+  const hhmm = t => t.slice(11, 16);
+
+  /* ---------- 共用元件 ---------- */
+  const tag = c => `<span class="tag" style="--c:${c.color}">${c.name}</span>`;
+  const meta = a => `<div class="meta"><span class="src">${esc(a.source)}</span><span>${ago(a.time)}</span></div>`;
+
+  function card(a, cls = "") {
+    const c = catOf(a.cat);
+    return `<article class="card ${cls} fade-in" style="--c:${c.color}" data-id="${a.id}" tabindex="0">
+      <div class="thumb">${ph(a)}${imgTag(a, !cls)}${tag(c)}</div>
+      <div class="card-body">
+        <h3>${esc(a.title)}</h3>
+        <p>${esc(a.summary)}</p>
+        ${meta(a)}
+      </div>
+    </article>`;
+  }
+
+  function mini(a) {
+    const c = catOf(a.cat);
+    return `<article class="mini fade-in" style="--c:${c.color}" data-id="${a.id}" tabindex="0">
+      <div class="thumb">${ph(a)}${imgTag(a, true)}</div>
+      <div><h3>${esc(a.title)}</h3>${meta(a)}</div>
+    </article>`;
+  }
+
+  const inCat = id => ARTS.filter(a => a.cat === id).sort(byTime);
+
+  function sidebar(excludeCat) {
+    // 各類焦點：每個分類挑一則最新的
+    const picks = CATEGORIES.slice(1).filter(c => c.id !== excludeCat)
+      .map(c => inCat(c.id)[1] || inCat(c.id)[0]).filter(Boolean);
+    return `<aside class="sidebar">
+      <section class="panel"><h3 class="panel-title">各類焦點</h3>
+        <ol class="rank">${picks.map(a =>
+          `<li><a href="#news/${a.id}"><div><span>${esc(a.title)}</span><small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}・${ago(a.time)}</small></div></a></li>`
+        ).join("")}</ol>
+      </section>
+      <section class="panel"><h3 class="panel-title">逛逛分類</h3>
+        <div class="cat-cloud">${CATEGORIES.slice(1).map(c =>
+          `<button style="--c:${c.color}" data-cat="${c.id}">${c.icon} ${c.name}</button>`).join("")}</div>
+      </section>
+      <section class="panel sources"><h3 class="panel-title">新聞來源</h3>
+        <p>本站以 <b>聯合報</b> 為主，並彙整 <b>ETtoday</b>、<b>中央社</b>、<b>科技新報</b>、<b>非凡新聞</b>（財經）的公開新聞，每 10 分鐘更新。點進文章可前往原網站閱讀全文。</p>
+      </section>
+    </aside>`;
+  }
+
+  /* ---------- 首頁 ---------- */
+  function renderHome() {
+    // 輪播：每個分類挑一則最新、有圖的新聞
+    const slides = CATEGORIES.slice(1).map(c => inCat(c.id).find(hasImg)).filter(Boolean).sort(byTime).slice(0, 8);
+    const used = new Set(slides.map(a => a.id));
+    const latest = [...ARTS].sort(byTime).slice(0, 12);
+
+    const sections = CATEGORIES.slice(1).map(c => {
+      const list = inCat(c.id).filter(a => !used.has(a.id));
+      if (!list.length) return "";
+      const big = list.find(hasImg) || list[0];
+      const rest = list.filter(a => a !== big).slice(0, 4);
+      return `<section class="section" style="--c:${c.color}">
+        <div class="section-head">
+          <h2><span class="dot"></span>${c.name}</h2>
+          <a class="more" href="#cat/${c.id}">看更多${c.name}新聞 →</a>
+        </div>
+        <div class="cat-block">
+          ${card(big, "big")}
+          <div class="mini-list">${rest.map(mini).join("")}</div>
+        </div>
+      </section>`;
+    }).join("");
+
+    $("#main").innerHTML = `
+      ${DEMO ? `<div class="notice">⚠ 目前讀不到即時新聞，暫時顯示示範內容。請用「啟動比特王新聞網」開啟網站。</div>` : ""}
+      <div class="hero-grid">
+        <div class="slider" id="slider" aria-roledescription="輪播" aria-label="焦點新聞">
+          ${slides.map((a, i) => {
+            const c = catOf(a.cat);
+            return `<div class="slide${i === 0 ? " on" : ""}" data-id="${a.id}" aria-hidden="${i !== 0}">
+              ${imgTag(a, false, i < 2)}
+              <div class="slide-text">${tag(c)}<h2>${esc(a.title)}</h2><p>${esc(a.summary)}</p>
+                <div class="slide-src">${esc(a.source)}・${ago(a.time)}</div></div>
+            </div>`;
+          }).join("")}
+          <button class="slider-arrow prev" aria-label="上一則">‹</button>
+          <button class="slider-arrow next" aria-label="下一則">›</button>
+          <div class="slider-dots">${slides.map((_, i) => `<button aria-label="第 ${i + 1} 則"><span></span></button>`).join("")}</div>
+          <div class="slider-count"><b id="slideNo">1</b> / ${slides.length}</div>
+        </div>
+        <aside class="panel latest">
+          <h3 class="panel-title">即時新聞 <span class="live">LIVE</span></h3>
+          <ul class="latest-list">${latest.map(a =>
+            `<li><a href="#news/${a.id}"><time>${hhmm(a.time)}</time><span>${esc(a.title)}<small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}</small></span></a></li>`).join("")}</ul>
+        </aside>
+      </div>
+      <div class="home-layout">
+        <div>${sections}</div>
+        ${sidebar()}
+      </div>`;
+    startSlider();
+  }
+
+  /* ---------- 輪播橫幅 ---------- */
+  let sliderTimer = null;
+  function startSlider() {
+    const el = $("#slider");
+    if (!el) return;
+    const slides = [...el.querySelectorAll(".slide")];
+    const dots = [...el.querySelectorAll(".slider-dots button")];
+    if (!slides.length) return;
+    const DUR = 6000; // 每張停留 6 秒
+    el.style.setProperty("--dur", DUR + "ms");
+    let cur = 0, remaining = DUR, startedAt = 0, paused = false;
+
+    function go(n) {
+      cur = (n + slides.length) % slides.length;
+      slides.forEach((s, i) => { s.classList.toggle("on", i === cur); s.setAttribute("aria-hidden", i !== cur); });
+      dots.forEach((d, i) => { d.classList.remove("on"); d.classList.toggle("done", i < cur); });
+      void dots[cur].offsetWidth;            // 讓進度條動畫重新開始
+      dots[cur].classList.add("on");
+      $("#slideNo").textContent = cur + 1;
+      remaining = DUR;
+      schedule();
+    }
+    function schedule() {
+      clearTimeout(sliderTimer);
+      if (paused) return;
+      startedAt = Date.now();
+      sliderTimer = setTimeout(() => go(cur + 1), remaining);
+    }
+    function pause() {
+      if (paused) return;
+      paused = true; el.classList.add("paused");
+      clearTimeout(sliderTimer);
+      remaining -= Date.now() - startedAt;
+    }
+    function resume() {
+      if (!paused) return;
+      paused = false; el.classList.remove("paused");
+      schedule();
+    }
+
+    el.querySelector(".prev").onclick = e => { e.stopPropagation(); go(cur - 1); };
+    el.querySelector(".next").onclick = e => { e.stopPropagation(); go(cur + 1); };
+    dots.forEach((d, i) => d.onclick = e => { e.stopPropagation(); go(i); });
+    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseleave", resume);
+    slides.forEach(s => s.onclick = () => openArticle(s.dataset.id));
+
+    // 手機滑動切換
+    let x0 = null;
+    el.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; pause(); }, { passive: true });
+    el.addEventListener("touchend", e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      paused = false; el.classList.remove("paused");
+      if (Math.abs(dx) > 40) go(cur + (dx < 0 ? 1 : -1)); else schedule();
+      x0 = null;
+    });
+    document.onvisibilitychange = () => document.hidden ? pause() : resume();
+
+    go(0);
+  }
+
+  /* ---------- 分類頁 ---------- */
+  const CAT_DESC = {
+    politics: "政策動向、國會攻防與選舉焦點", society: "社會事件與治安動態", world: "掌握全球大事與國際脈動",
+    finance: "股市、理財與產業最新趨勢", tech: "AI、半導體與數位生活新知",
+    life: "天氣、交通、消費與日常大小事", health: "醫療新知與養生保健",
+    sports: "賽場上的熱血與感動", ent: "影視、音樂與明星動態", travel: "國內外旅遊情報與玩樂提案",
+  };
+  function renderCategory(id) {
+    const c = catOf(id);
+    const list = inCat(id);
+    const first = list.find(hasImg);
+    const ordered = first ? [first, ...list.filter(a => a !== first)] : list;
+    $("#main").innerHTML = `
+      <div class="cat-hero fade-in" style="--c:${c.color}" data-icon="${c.icon}">
+        <h1>${c.name}</h1><p>${CAT_DESC[id] || ""}・共 ${list.length} 則新聞</p>
+      </div>
+      <div class="home-layout">
+        <div class="grid">${ordered.map((a, i) => card(a, i === 0 ? "feature" : "")).join("") ||
+          `<div class="empty"><b>📭</b>這個分類目前還沒有新聞</div>`}</div>
+        ${sidebar(id)}
+      </div>`;
+  }
+
+  /* ---------- 搜尋 ---------- */
+  function renderSearch(q) {
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const list = ARTS.filter(a => {
+      const text = (a.title + a.summary + catOf(a.cat).name + a.source).toLowerCase();
+      return words.every(w => text.includes(w));
+    }).sort(byTime);
+    $("#searchInput").value = q;
+    $("#main").innerHTML = `
+      <div class="cat-hero fade-in" style="--c:#334155" data-icon="🔍">
+        <h1>搜尋：「${esc(q)}」</h1><p>找到 ${list.length} 則相關新聞</p>
+      </div>
+      <div class="grid">${list.map(a => card(a)).join("") ||
+        `<div class="empty" style="grid-column:1/-1"><b>🔍</b>找不到相關新聞，換個關鍵字試試看</div>`}</div>`;
+  }
+
+  /* ---------- 閱讀文章 ---------- */
+  let lastNonArticleHash = "";
+  let openedInSite = false;
+  function openArticle(id) {
+    id = String(id);
+    if (location.hash !== `#news/${id}`) { openedInSite = true; location.hash = `news/${id}`; return; }
+    const a = ARTS.find(x => String(x.id) === id);
+    if (!a) { location.hash = ""; return; }
+    const c = catOf(a.cat);
+    const related = inCat(a.cat).filter(x => x.id !== a.id).slice(0, 6);
+    $("#readerArticle").style.setProperty("--c", c.color);
+    $("#readerArticle").innerHTML = `
+      ${tag(c)}
+      <h1>${esc(a.title)}</h1>
+      <div class="reader-meta"><span>來源 <b>${esc(a.source)}</b></span><span>${a.time.replace(/-/g, "/")}</span><span>${ago(a.time)}</span></div>
+      ${hasImg(a) ? `<figure class="reader-cover">${imgTag(a, false, true)}</figure>
+      <div class="reader-caption">圖片來源：${esc(a.source)}</div>` : `<div style="height:28px"></div>`}
+      <p class="reader-lead">${esc(a.summary)}</p>
+      ${a.link ? `<a class="read-full" href="${esc(a.link)}" target="_blank" rel="noopener">
+          <span><small>完整報導請至</small>${esc(a.source)} 閱讀全文</span><b>↗</b></a>` : ""}
+      <div class="reader-share">
+        <button data-share="copy">🔗 複製這篇的連結</button>
+      </div>
+      <div class="reader-note">※ 比特王新聞網自動彙整各大媒體公開的新聞摘要，文章版權屬原媒體所有。</div>
+      ${related.length ? `<section class="related section" style="--c:${c.color}">
+        <div class="section-head"><h2><span class="dot"></span>更多${c.name}新聞</h2></div>
+        <div class="grid">${related.map(x => card(x)).join("")}</div></section>` : ""}`;
+    document.title = `${a.title}｜${SITE.name}`;
+    const r = $("#reader");
+    r.classList.add("open"); r.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    $("#readerScroll").scrollTop = 0;
+    updateProgress();
+    setTimeout(() => $("#readerClose").focus({ preventScroll: true }), 50);
+  }
+  function closeReader() {
+    const r = $("#reader");
+    r.classList.remove("open"); r.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    document.title = `${SITE.name}｜${SITE.slogan}`;
+  }
+  function updateProgress() {
+    const s = $("#readerScroll");
+    const max = s.scrollHeight - s.clientHeight;
+    $("#readProgress").style.width = (max > 0 ? (s.scrollTop / max) * 100 : 0) + "%";
+  }
+
+  /* ---------- 網址切換 ---------- */
+  let currentView = null;
+  function route(force) {
+    const h = decodeURIComponent(location.hash.slice(1));
+    const [type, ...rest] = h.split("/");
+    const arg = rest.join("/");
+
+    if (type === "news") {
+      if (currentView === null) { currentView = "home"; renderHome(); setActive("all"); }
+      openArticle(arg);
+      return;
+    }
+    closeReader();
+    openedInSite = false;
+    lastNonArticleHash = location.hash;
+    clearTimeout(sliderTimer);
+    const view = h || "home";
+    if (view === currentView && force !== true) return;
+    const keepScroll = force === true;
+    currentView = view;
+
+    if (type === "cat" && CATEGORIES.some(c => c.id === arg && arg !== "all")) {
+      renderCategory(arg); setActive(arg);
+    } else if (type === "search" && arg) {
+      renderSearch(arg); setActive(null);
+    } else {
+      renderHome(); setActive("all");
+    }
+    if (!keepScroll) window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  function setActive(id) {
+    document.querySelectorAll(".cat-pill").forEach(p => {
+      const on = p.dataset.cat === id;
+      p.classList.toggle("active", on);
+      if (on) p.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    });
+  }
+
+  /* ---------- 讀取新聞 ---------- */
+  async function loadNews() {
+    const r = await fetch("news.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (!d.articles?.length) throw new Error("empty");
+    return d;
+  }
+  function useData(d) {
+    ARTS = d.articles; UPDATED = d.updated; DEMO = false;
+    $("#updated").textContent = `新聞更新於 ${UPDATED.slice(11, 16)}`;
+    paintTicker();
+  }
+  function useDemo() {
+    ARTS = ARTICLES.map(a => ({ ...a, id: String(a.id), source: a.author }));
+    DEMO = true;
+    $("#updated").textContent = "示範內容";
+    paintTicker();
+  }
+  function paintTicker() {
+    const items = [...ARTS].sort(byTime).slice(0, 10)
+      .map(a => `<a href="#news/${a.id}">${esc(a.title)}</a>`).join("");
+    $("#ticker").innerHTML = items + items;     // 複製兩份才能無縫循環
+  }
+
+  // 每 3 分鐘檢查有沒有新新聞，有的話跳出提示
+  let pending = null;
+  async function checkUpdate() {
+    try {
+      const d = await loadNews();
+      if (DEMO) { useData(d); route(true); return; }
+      if (d.updated === UPDATED) return;
+      const old = new Set(ARTS.map(a => a.id));
+      const n = d.articles.filter(a => !old.has(a.id)).length;
+      if (!n) { useData(d); return; }
+      pending = d;
+      $("#toastText").textContent = `有 ${n} 則新新聞`;
+      $("#toast").classList.add("show");
+    } catch (e) {}
+  }
+  function applyPending() {
+    if (!pending) return;
+    useData(pending); pending = null;
+    $("#toast").classList.remove("show");
+    if (!$("#reader").classList.contains("open")) route(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ---------- 啟動 ---------- */
+  async function init() {
+    const d = new Date();
+    $("#today").textContent = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日　星期${"日一二三四五六"[d.getDay()]}`;
+
+    $("#catList").innerHTML = CATEGORIES.map(c =>
+      `<a class="cat-pill" style="--c:${c.color}" data-cat="${c.id}" href="${c.id === "all" ? "#" : "#cat/" + c.id}">
+        <span class="ic">${c.icon}</span>${c.name}</a>`).join("");
+    $("#footerCats").innerHTML = CATEGORIES.slice(1).map(c => `<a href="#cat/${c.id}">${c.name}</a>`).join("");
+
+    document.addEventListener("click", e => {
+      const catBtn = e.target.closest("[data-cat]:not(a)");
+      if (catBtn) { location.hash = `cat/${catBtn.dataset.cat}`; return; }
+      const el = e.target.closest(".card[data-id], .mini[data-id]");
+      if (el) openArticle(el.dataset.id);
+      const share = e.target.closest("[data-share]");
+      if (share) {
+        navigator.clipboard?.writeText(location.href).then(() => {
+          share.textContent = "✓ 已複製"; setTimeout(() => share.textContent = "🔗 複製這篇的連結", 1500);
+        }).catch(() => {});
+      }
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter" && e.target.matches(".card[data-id], .mini[data-id]")) openArticle(e.target.dataset.id);
+      if (e.key === "Escape" && $("#reader").classList.contains("open")) $("#readerClose").click();
+    });
+
+    $("#searchForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const q = $("#searchInput").value.trim();
+      if (q) location.hash = `search/${encodeURIComponent(q)}`;
+    });
+
+    $("#readerClose").onclick = () => {
+      if (openedInSite) history.back();
+      else location.hash = lastNonArticleHash || "";
+    };
+    $("#readerScroll").addEventListener("scroll", updateProgress, { passive: true });
+
+    const setFont = delta => {
+      const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--read-size")) || 19;
+      const next = Math.min(28, Math.max(15, cur + delta));
+      document.documentElement.style.setProperty("--read-size", next + "px");
+      try { localStorage.setItem("btk-font", next); } catch (e) {}
+    };
+    $("#fontUp").onclick = () => setFont(2);
+    $("#fontDown").onclick = () => setFont(-2);
+
+    const themeBtn = $("#themeBtn");
+    const isDark = () => {
+      const t = document.documentElement.dataset.theme;
+      return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    };
+    const paintTheme = () => themeBtn.textContent = isDark() ? "☀️ 淺色模式" : "🌙 深色模式";
+    themeBtn.onclick = () => {
+      const t = isDark() ? "light" : "dark";
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem("btk-theme", t); } catch (e) {}
+      paintTheme();
+    };
+    paintTheme();
+
+    const nav = $("#catnav"), toTop = $("#toTop");
+    window.addEventListener("scroll", () => {
+      nav.classList.toggle("scrolled", window.scrollY > 160);
+      toTop.classList.toggle("show", window.scrollY > 600);
+    }, { passive: true });
+    toTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+    $("#toast").onclick = applyPending;
+
+    try { useData(await loadNews()); } catch (e) { useDemo(); }
+
+    window.addEventListener("hashchange", route);
+    route();
+    setInterval(checkUpdate, 3 * 60 * 1000);
+  }
+
+  init();
+})();

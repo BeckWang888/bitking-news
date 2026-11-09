@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>比特王新聞網｜看懂世界，從這裡開始</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <meta name="description" content="比特王新聞網：清晰好讀的新聞網站，政治、國際、財經、科技、生活、健康、體育、娛樂、旅遊一次掌握。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // 記住使用者選的深色/淺色模式與字體大小（在畫面出現前先套用，避免閃爍）
+    try {
+      const t = localStorage.getItem("btk-theme");
+      if (t) document.documentElement.dataset.theme = t;
+      const f = localStorage.getItem("btk-font");
+      if (f) document.documentElement.style.setProperty("--read-size", f + "px");
+    } catch (e) {}
+  </script>
+</head>
+<body>
+
+  <!-- 最上方細條：日期與工具 -->
+  <div class="topbar">
+    <div class="wrap topbar-inner">
+      <span><span id="today"></span><span class="upd" id="updated"></span></span>
+      <div class="topbar-tools">
+        <button class="tool-btn" id="themeBtn" aria-label="切換深色模式">🌙 深色模式</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 網站標頭 -->
+  <header class="masthead">
+    <div class="wrap masthead-inner">
+      <a href="#" class="logo" aria-label="比特王新聞網 首頁">
+        <!-- 把原始 logo 存成 logo.png 放在這個資料夾，就會自動使用；沒有的話用重繪的 logo.svg -->
+        <img class="logo-mark" src="logo.png" alt="比特王" onerror="this.onerror=null;this.src='logo.svg'">
+        <span class="logo-text">
+          <strong>比特王新聞網</strong>
+          <small>看懂世界，從這裡開始</small>
+        </span>
+      </a>
+      <form class="search" id="searchForm" role="search">
+        <input id="searchInput" type="search" placeholder="搜尋新聞關鍵字…" aria-label="搜尋新聞">
+        <button type="submit" aria-label="搜尋">
+          <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M16.5 16.5 L21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </button>
+      </form>
+    </div>
+  </header>
+
+  <!-- 分類選單（捲動時會黏在上方） -->
+  <nav class="catnav" id="catnav" aria-label="新聞分類">
+    <div class="wrap catnav-inner" id="catList"></div>
+  </nav>
+
+  <!-- 快訊跑馬燈 -->
+  <div class="ticker">
+    <div class="wrap ticker-inner">
+      <span class="ticker-label"><i></i>即時快訊</span>
+      <div class="ticker-track"><div class="ticker-move" id="ticker"></div></div>
+    </div>
+  </div>
+
+  <main id="main" class="wrap"></main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div>
+        <strong class="footer-logo">比特王新聞網</strong>
+        <p>清晰、好讀、值得信賴的新聞。</p>
+      </div>
+      <div class="footer-cats" id="footerCats"></div>
+      <p class="footer-copy">© 2026 比特王新聞網　新聞摘要來自聯合報、ETtoday、中央社、科技新報、非凡新聞公開之新聞資料，文章版權屬原媒體所有。</p>
+    </div>
+  </footer>
+
+  <!-- 閱讀文章的全頁視窗 -->
+  <div class="reader" id="reader" aria-hidden="true">
+    <div class="reader-bar">
+      <button class="reader-back" id="readerClose">← 返回</button>
+      <div class="reader-progress"><span id="readProgress"></span></div>
+      <div class="font-tools" aria-label="調整字體大小">
+        <button id="fontDown" aria-label="字變小">A−</button>
+        <button id="fontUp" aria-label="字變大">A+</button>
+      </div>
+    </div>
+    <div class="reader-scroll" id="readerScroll">
+      <article class="reader-article" id="readerArticle"></article>
+    </div>
+  </div>
+
+  <button class="to-top" id="toTop" aria-label="回到最上方">↑</button>
+  <button class="toast" id="toast"><i></i><span id="toastText">有新新聞</span><b>點此更新</b></button>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
