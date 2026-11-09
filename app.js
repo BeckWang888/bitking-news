@@ -149,7 +149,6 @@
             `<li><a href="#news/${a.id}"><time>${hhmm(a.time)}</time><span>${esc(a.title)}<small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}</small></span></a></li>`).join("")}</ul>
         </aside>
       </div>
-      ${originalSection()}
       ${channelSection()}
       ${fbSection()}
       <div class="home-layout">
@@ -582,10 +581,33 @@
     });
     const el = $("#ticker");
     el.innerHTML = parts.join("") + parts.join("");   // 複製兩份才能無縫循環
-    // 固定的慢速：每秒移動的像素數由 data.js 的 TICKER_SPEED 決定（不論內容多長，速度都一樣）
-    const dist = el.scrollWidth / 2;
-    const speed = (typeof TICKER_SPEED !== "undefined" ? TICKER_SPEED : 3);
-    if (dist > 0) el.style.animationDuration = (dist / speed) + "s";
+    startTicker(el);
+  }
+
+  // 跑馬燈：由程式逐格移動（不受 Windows「減少動畫」設定影響），速度＝每秒幾像素
+  let tk = null;
+  function startTicker(el) {
+    const speed = (typeof TICKER_SPEED !== "undefined" ? TICKER_SPEED : 30);
+    el.style.animation = "none";
+    if (!tk) {
+      tk = { x: 0, last: 0, paused: false, el };
+      const track = el.parentElement;
+      track.addEventListener("mouseenter", () => tk.paused = true);
+      track.addEventListener("mouseleave", () => tk.paused = false);
+      const step = ts => {
+        const dt = tk.last ? Math.min(0.1, (ts - tk.last) / 1000) : 0;
+        tk.last = ts;
+        const w = tk.el.scrollWidth / 2;
+        if (!tk.paused && w > 0) {
+          tk.x -= speed * dt;
+          if (-tk.x >= w) tk.x += w;
+          tk.el.style.transform = `translateX(${tk.x}px)`;
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    tk.el = el;
   }
 
   // 每 3 分鐘檢查有沒有新新聞，有的話跳出提示

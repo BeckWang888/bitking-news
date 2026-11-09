@@ -43,11 +43,15 @@ YT_FEEDS = [                                   # 兩種官方訂閱網址輪流�
 ]
 
 # ---------- 每個分類要抓哪些來源 ----------
-# 主要來源：聯合報（每類保留約一半的版面給聯合報）
-# 輔助來源：ETtoday、中央社、科技新報；財經另加非凡新聞
+# 主要來源：聯合報（每類約三分之一）
+# 其他來源：台視、ETtoday、中央社、風傳媒、經濟日報、科技新報、非凡新聞
+# （依站長要求不收：民視、自由時報、三立、壹新聞、蘋果、新頭殼）
 FB = "https://feeds.feedburner.com/"
+TTV = "https://www.ttv.com.tw/rss/RSSHandler.ashx?d=news&t="
+STORM = "https://www.storm.mg/api/getRss/channel_id/"
 MAIN_SOURCE = "聯合報"
-MAIN_SHARE = 12           # 每類最多幾則留給主要來源
+MAIN_SHARE = 8            # 每類最多幾則留給主要來源
+PER_SOURCE = 6            # 其他每個來源每類最多幾則，讓各家平均出現
 
 # 聯合報「即時新聞」各分類的編號
 UDN = {"politics": [1], "society": [2], "world": [5, 4], "finance": [6, 10],
@@ -55,15 +59,16 @@ UDN = {"politics": [1], "society": [2], "world": [5, 4], "finance": [6, 10],
 UDN_HEALTH_PATH = "/story/7266/"   # 聯合報生活類裡的「健康」文章，改放到健康分類
 
 FEEDS = {
-    "politics": [("ETtoday", FB + "ettoday/news"), ("中央社", FB + "rsscna/politics")],
-    "society":  [("中央社", FB + "rsscna/social")],
-    "world":    [("ETtoday", FB + "ettoday/global"), ("中央社", FB + "rsscna/intworld")],
-    "finance":  [("非凡新聞", "https://news.ustv.com.tw/feed"), ("ETtoday", FB + "ettoday/finance"), ("中央社", FB + "rsscna/finance")],
+    "politics": [("台視", TTV + "A"), ("ETtoday", FB + "ettoday/news"), ("中央社", FB + "rsscna/politics"), ("風傳媒", STORM + "7")],
+    "society":  [("台視", TTV + "C"), ("中央社", FB + "rsscna/social")],
+    "world":    [("台視", TTV + "G"), ("ETtoday", FB + "ettoday/global"), ("中央社", FB + "rsscna/intworld"), ("風傳媒", STORM + "10")],
+    "finance":  [("非凡新聞", "https://news.ustv.com.tw/feed"), ("台視", TTV + "B"), ("經濟日報", "https://money.udn.com/rssfeed/news/1001/5590?ch=money"),
+                 ("ETtoday", FB + "ettoday/finance"), ("中央社", FB + "rsscna/finance")],
     "tech":     [("ETtoday", FB + "ettoday/teck3c"), ("中央社", FB + "rsscna/technology"), ("科技新報", "https://technews.tw/feed/")],
-    "life":     [("ETtoday", FB + "ettoday/lifestyle"), ("中央社", FB + "rsscna/lifehealth")],
-    "health":   [("ETtoday", FB + "ettoday/health")],
-    "sports":   [("ETtoday", FB + "ettoday/sport"), ("中央社", FB + "rsscna/sport")],
-    "ent":      [("ETtoday", FB + "ettoday/star"), ("中央社", FB + "rsscna/stars")],
+    "life":     [("台視", TTV + "P"), ("ETtoday", FB + "ettoday/lifestyle"), ("中央社", FB + "rsscna/lifehealth"), ("風傳媒", STORM + "5")],
+    "health":   [("台視", TTV + "Z"), ("ETtoday", FB + "ettoday/health")],
+    "sports":   [("台視", TTV + "J"), ("ETtoday", FB + "ettoday/sport"), ("中央社", FB + "rsscna/sport")],
+    "ent":      [("台視", TTV + "F"), ("ETtoday", FB + "ettoday/star"), ("中央社", FB + "rsscna/stars")],
     "travel":   [("ETtoday", FB + "ettoday/travel")],
 }
 
@@ -126,6 +131,8 @@ def parse_feed(cat, source, url):
     for block in re.findall(r"<item[\s>].*?</item>", xml, re.S):
         title = clean(tag(block, "title"))
         link = clean(tag(block, "link"))
+        if link.startswith("/") and "storm.mg" in url:          # 風傳媒給的是相對網址
+            link = "https://www.storm.mg/article" + link.split("?")[0]
         if not title or not link:
             continue
         raw_desc = tag(block, "description")
@@ -377,8 +384,9 @@ def find_cover(link):
         page = fetch(link, timeout=10)[:200000]
     except Exception:
         return ""
-    m = (re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', page)
-         or re.search(r'<meta[^>]+content="([^"]+)"[^>]+property="og:image"', page))
+    # 各網站寫法不同（單／雙引號、大小寫），都要認得
+    m = (re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', page, re.I)
+         or re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', page, re.I))
     img = html.unescape(m.group(1)) if m else ""
     if "pic_fb" in img or "logo" in img.lower() or "default" in img.lower():
         return ""                                   # 網站預設圖不算
@@ -411,10 +419,18 @@ def build():
         # 先放聯合報（最多 MAIN_SHARE 則），其餘名額給其他來源，再依時間排序
         main = [x for x in uniq if x["source"] == MAIN_SOURCE][:MAIN_SHARE]
         must = [x for x in uniq if x["source"] == "非凡新聞"][:6]
-        others = [x for x in uniq if x["source"] not in (MAIN_SOURCE, "非凡新聞")]
+        # 其他來源：每家最多 PER_SOURCE 則，依時間先後挑，讓各家平均出現
+        per, others = {}, []
+        for x in uniq:
+            if x["source"] in (MAIN_SOURCE, "非凡新聞"):
+                continue
+            if per.get(x["source"], 0) < PER_SOURCE:
+                per[x["source"]] = per.get(x["source"], 0) + 1
+                others.append(x)
         kept = main + must + others[:max(0, PER_CATEGORY - len(main) - len(must))]
-        if len(kept) < PER_CATEGORY:                # 其他來源不夠時，再用聯合報補滿
-            extra = [x for x in uniq if x["source"] == MAIN_SOURCE and x not in main]
+        if len(kept) < PER_CATEGORY:                # 還不夠時，先用其他來源、再用聯合報補滿
+            extra = [x for x in uniq if x not in kept and x["source"] != MAIN_SOURCE] + \
+                    [x for x in uniq if x not in kept and x["source"] == MAIN_SOURCE]
             kept += extra[:PER_CATEGORY - len(kept)]
         kept.sort(key=lambda x: x["time"], reverse=True)
         final.extend(kept)
@@ -424,7 +440,7 @@ def build():
         cache = json.load(open(CACHE, encoding="utf-8"))
     except Exception:
         cache = {}
-    need = [it for it in final if not it["img"] and it["link"] not in cache]
+    need = [it for it in final if not it["img"] and not cache.get(it["link"])]   # 上次沒找到的也再試一次
     if need:
         with ThreadPoolExecutor(8) as ex:
             for it, img in zip(need, ex.map(lambda x: find_cover(x["link"]), need)):

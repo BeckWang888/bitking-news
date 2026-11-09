@@ -571,3 +571,9 @@ img { display: block; max-width: 100%; }
 .reader-body a { color: var(--c); text-decoration: underline; word-break: break-all; }
 .orig-note { margin-top: 28px; padding: 14px 18px; border-radius: 12px; background: color-mix(in srgb, #b91c1c 10%, var(--surface));
   color: #b91c1c; font-weight: 700; font-size: 15px; }
+
+/* 跑馬燈改由程式移動；Windows 開啟「減少動畫」時，圓點維持不動、不閃爍 */
+.ticker-move { animation: none !important; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .ticker-label i, .toast i, .live { animation: none !important; }
+}

@@ -19,7 +19,6 @@ const SITE = {
 
 const CATEGORIES = [
   { id: "all",      name: "首頁",   color: "#e11d48", icon: "◆" },
-  { id: "original", name: "比特王原創", color: "#b91c1c", icon: "✍", special: true },
   { id: "channel",  name: "比特王頻道", color: "#1f2b31", icon: "▶", video: true },
   { id: "politics", name: "政治",   color: "#dc2626", icon: "⚖" },
   { id: "society",  name: "社會",   color: "#475569", icon: "📰" },
@@ -175,7 +174,7 @@ const BREAKING = [
    要改文字或連結，直接改下面這幾行即可
    ============================================================ */
 /* 即時快訊的跑動速度：每秒移動幾個像素（數字越小越慢） */
-const TICKER_SPEED = 3;
+const TICKER_SPEED = 30;
 
 const TICKER_ADS = [
   { text: "沒有 SIM 卡也能通話！「台光一點通 BiBi」全家一按就廣播，有危險按住 3 秒求救，官網免費下載",
