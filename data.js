@@ -193,4 +193,4 @@ const TICKER_ADS = [
 const FB_PAGE = "https://www.facebook.com/Bitking.Mission";
 
 /* 比特王 LINE 群組：把邀請連結貼在這裡（https://line.me/... 開頭），留空就不顯示按鈕 */
-const LINE_GROUP_URL = "";
+const LINE_GROUP_URL = "https://line.me/ti/g2/LtVQHldWmZ81q_aNEQVCyXORnea2lJWFGuoi7w";
