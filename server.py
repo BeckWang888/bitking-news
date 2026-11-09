@@ -395,17 +395,20 @@ class QuotaUsedUp(Exception):
 
 def gemini_write(key, model, it):
     prompt = f"新聞標題：{it['title']}\n原始媒體：{it['source']}\n新聞摘要：{it['summary']}"
+    config = {"maxOutputTokens": 4096, "temperature": 0.7}
+    if model == MODEL_FLASH:
+        config["thinkingConfig"] = {"thinkingLevel": "low"}     # 寫新聞不需要想太久，比較快
     body = json.dumps({
         "systemInstruction": {"parts": [{"text": AI_SYSTEM}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.7},
+        "generationConfig": config,
     }).encode("utf-8")
     req = urllib.request.Request(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
         data=body, method="POST",
         headers={"Content-Type": "application/json", "x-goog-api-key": key})
     try:
-        with urllib.request.urlopen(req, timeout=35, context=_ctx) as r:
+        with urllib.request.urlopen(req, timeout=60 if model == MODEL_FLASH else 35, context=_ctx) as r:
             data = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         if e.code == 429:
