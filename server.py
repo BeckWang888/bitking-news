@@ -361,8 +361,15 @@ GEMINI_MODELS = [MODEL_LITE, MODEL_FLASH]
 # 免費額度（每個型號）：每分鐘 15 次、每天 500 次
 AI_MAX_PER_RUN = int(os.environ.get("AI_MAX") or 10)   # 每次更新最多寫幾則（手動補寫時可以臨時調高）
 AI_GAP_SECONDS = 4.5           # 每則之間間隔幾秒（每分鐘最多約 13 次，不超過上限）
-HOME_PER_CAT = 6               # 首頁每個分類會出現的新聞數（這些優先寫）
-HOME_LATEST = 12               # 首頁「即時新聞」列表的則數（優先寫）
+# 省額度的分配方式：只寫「看得到、有人會點」的新聞
+#   重點分類：整個分類的新聞都寫（首頁上的先寫）
+#   主要分類：只寫首頁上最顯眼的那則（輪播大圖、分類頭條大卡）
+#   其他分類（冷門）：不寫 AI 報導，只顯示原始新聞摘要
+AI_KEY_CATS = {"politics"}
+AI_MAIN_CATS = {"society", "world", "finance", "tech"}
+AI_DAILY_LIMIT = 450           # 每個型號每天最多用幾次（免費上限 500，留一點備用）
+RUNS_PER_DAY = 96              # 約每 15 分鐘更新一次 → 一天約 96 次，額度平均分到每一次
+PACIFIC = timezone(timedelta(hours=-8))   # Google 免費額度在美國西岸時間半夜 12 點（台灣下午 4 點）重新計算
 AI_SYSTEM = """你是「比特王新聞網」的新聞編輯。你會收到一則新聞的標題、摘要與原始媒體名稱。
 請用你自己的話，寫一篇約 300 字的繁體中文報導，幫讀者看懂這則新聞：
 1. 先用一兩句話說清楚發生了什麼事。
@@ -387,6 +394,22 @@ def previous_reports():
         except Exception:
             pass
     return old
+
+
+def previous_usage(today):
+    """今天（Google 的計算日）已經用了幾次 AI：從本機與正式網站的 news.json 讀，取較大的"""
+    best = {}
+    for src in ("local", "live"):
+        try:
+            data = json.load(open(OUT, encoding="utf-8")) if src == "local" else json.loads(fetch(LIVE_SITE))
+            u = data.get("aiUsage") or {}
+            if u.get("date") == today:
+                for k, v in u.items():
+                    if k != "date":
+                        best[k] = max(best.get(k, 0), int(v))
+        except Exception:
+            pass
+    return best
 
 
 class QuotaUsedUp(Exception):
@@ -431,28 +454,48 @@ def write_reports(final):
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not key:
         print(f"  ・比特王報導：沒有 Gemini 金鑰，沿用舊報導 {sum(1 for it in final if it.get('report'))} 則")
-        return
-    # 先寫首頁上看得到的新聞（各分類最新幾則＋即時新聞列表），再寫其他的，同一級裡新的先寫
+        return None
+    # 照網站首頁的排法，找出首頁上最顯眼的新聞（輪播大圖＋各分類的頭條大卡）
     newest = sorted(final, key=lambda x: x["time"], reverse=True)
-    home = {it["id"] for it in newest[:HOME_LATEST]}
-    per = {}
+    cats = []
     for it in newest:
-        if per.get(it["cat"], 0) < HOME_PER_CAT:
-            per[it["cat"]] = per.get(it["cat"], 0) + 1
-            home.add(it["id"])
-    top = {it["id"] for it in newest[:HOME_LATEST]}           # 「即時新聞」列表
-    todo = [it for it in newest if not it.get("report")]
-    # 順序：首頁的政治新聞 → 即時新聞列表 → 首頁其他分類 → 首頁以外的政治新聞 → 其他
-    def rank(it):
-        if it["id"] in home and it["cat"] in FLASH_CATS:
-            return 0
-        if it["id"] in top:
+        if it["cat"] not in cats:
+            cats.append(it["cat"])
+    slides = [next((x for x in newest if x["cat"] == c and x.get("img")), None) for c in cats]
+    slides = sorted([x for x in slides if x], key=lambda x: x["time"], reverse=True)[:8]
+    used_ids = {x["id"] for x in slides}
+    headline = set(used_ids)
+    home_key = set()
+    for c in cats:
+        lst = [x for x in newest if x["cat"] == c and x["id"] not in used_ids]
+        if lst:
+            big = next((x for x in lst if x.get("img")), lst[0])
+            headline.add(big["id"])
+            if c in AI_KEY_CATS:
+                home_key.update(x["id"] for x in lst[:5])
+    home_key.update(x["id"] for x in slides if x["cat"] in AI_KEY_CATS)
+
+    def rank(it):                                   # 數字越小越先寫；None＝不寫
+        if it["cat"] in AI_KEY_CATS:
+            return 0 if it["id"] in home_key else 2
+        if it["cat"] in AI_MAIN_CATS and it["id"] in headline:
             return 1
-        if it["id"] in home:
-            return 2
-        return 3 if it["cat"] in FLASH_CATS else 4
-    need = sorted(todo, key=rank)[:AI_MAX_PER_RUN]         # sorted 會保留「新的在前」的順序
-    print(f"  ・比特王報導：首頁還缺 {sum(1 for it in todo if it['id'] in home)} 則，其他 {sum(1 for it in todo if it['id'] not in home)} 則")
+        return None
+    todo = [it for it in newest if not it.get("report") and rank(it) is not None]
+
+    # 每天的額度平均分配：今天還剩多少次 ÷ 今天還剩幾次更新
+    now = datetime.now(PACIFIC)
+    today = now.strftime("%Y-%m-%d")
+    usage = previous_usage(today)
+    left_runs = max(1, int((24 * 60 - (now.hour * 60 + now.minute)) / (24 * 60) * RUNS_PER_DAY))
+    left = AI_DAILY_LIMIT - usage.get(MODEL_LITE, 0)          # Lite 是主力，用它來算
+    allow = min(AI_MAX_PER_RUN, max(0, -(-left // left_runs)))   # 無條件進位
+    if os.environ.get("AI_MAX"):                               # 手動補寫：照指定數量（但不超過今天剩下的）
+        allow = min(AI_MAX_PER_RUN, max(0, left))
+    need = sorted(todo, key=rank)[:allow]
+    print(f"  ・比特王報導：待寫 {len(todo)} 則（重點首頁 {sum(1 for it in todo if rank(it) == 0)}、"
+          f"主要頭條 {sum(1 for it in todo if rank(it) == 1)}、重點其他 {sum(1 for it in todo if rank(it) == 2)}）；"
+          f"今天已用 {usage.get(MODEL_LITE, 0)}/{AI_DAILY_LIMIT}，這次寫 {len(need)} 則")
     dead = set()                                        # 這次更新中已經不能用（額度用完等）的型號
     fails = {}                                          # 各型號這次更新忙碌／逾時的次數
     done, used = 0, {}
@@ -462,10 +505,12 @@ def write_reports(final):
         # 政治新聞先用 Flash、其他先用 Lite；用不了就換另一個
         order = [MODEL_FLASH, MODEL_LITE] if it["cat"] in FLASH_CATS else [MODEL_LITE, MODEL_FLASH]
         models = [m for m in order if m not in dead]
+        models = [m for m in models if usage.get(m, 0) < AI_DAILY_LIMIT]
         if not models:
-            print("  ・比特王報導：兩個型號的免費額度都用完，下次更新再繼續")
+            print("  ・比特王報導：今天的免費額度都用完，明天再繼續")
             break
         for m in models:
+            usage[m] = usage.get(m, 0) + 1                 # 不論成功與否，都算用掉一次
             try:
                 text = gemini_write(key, m, it)
                 if text:
@@ -496,6 +541,7 @@ def write_reports(final):
                 dead.add(m)
     print(f"  ✓ 比特王報導：新寫 {done} 則（{'、'.join(f'{k} {v} 則' for k, v in used.items()) or '無'}），"
           f"共 {sum(1 for it in final if it.get('report'))} 則有報導")
+    return {"date": today, **usage}
 
 
 VIDEO_BACKUP = os.path.join(ROOT, "videos-backup.json")
@@ -603,7 +649,7 @@ def build():
     if not final:
         print("  ⚠ 這次沒有抓到任何新聞（可能是網路問題），保留舊資料。")
         return
-    write_reports(final)
+    ai_usage = write_reports(final)
     videos = fetch_videos()
     if videos:
         try:                                        # 存一份備援清單，下次抓不到時使用
@@ -619,7 +665,7 @@ def build():
         except Exception:
             fbposts = []
     data = {"updated": datetime.now(TW).strftime("%Y-%m-%d %H:%M:%S"), "articles": final, "videos": videos,
-            "fbposts": fbposts,
+            "fbposts": fbposts, "aiUsage": ai_usage,
             "channel": "https://www.youtube.com/channel/" + YT_CHANNEL_ID}
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
