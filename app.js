@@ -520,9 +520,9 @@
     });
     const el = $("#ticker");
     el.innerHTML = parts.join("") + parts.join("");   // 複製兩份才能無縫循環
-    // 固定的慢速：每秒移動約 45 像素（不論內容多長，速度都一樣）
+    // 固定的慢速：每秒移動約 30 像素（不論內容多長，速度都一樣）
     const dist = el.scrollWidth / 2;
-    if (dist > 0) el.style.animationDuration = Math.max(60, dist / 45) + "s";
+    if (dist > 0) el.style.animationDuration = Math.max(90, dist / 30) + "s";
   }
 
   // 每 3 分鐘檢查有沒有新新聞，有的話跳出提示
