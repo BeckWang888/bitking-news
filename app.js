@@ -151,6 +151,7 @@
       </div>
       ${tvScreen()}`;
     startSlider();
+    startChannelRow();
     startTv();
   }
 
@@ -221,11 +222,11 @@
   const views = n => n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)} 萬次觀看` : `${n || 0} 次觀看`;
   const PLAY = `<span class="play"><svg viewBox="0 0 68 48"><path d="M66.5 7.7c-.8-2.9-3-5.2-5.9-6C55.3.3 34 .3 34 .3S12.7.3 7.4 1.7c-2.9.8-5.1 3.1-5.9 6C.1 13 .1 24 .1 24s0 11 1.4 16.3c.8 2.9 3 5.2 5.9 6C12.7 47.7 34 47.7 34 47.7s21.3 0 26.6-1.4c2.9-.8 5.1-3.1 5.9-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#e11d48"/><path d="M45 24 27 14v20z" fill="#fff"/></svg></span>`;
 
-  function vcard(v, big) {
+  function vcard(v, big, isNew) {
     return `<article class="vcard${big ? " big" : ""} fade-in" data-vid="${esc(v.id)}" tabindex="0">
       <div class="vthumb"><img src="${thumb(v, big)}" alt="" loading="lazy" referrerpolicy="no-referrer"
         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${thumb(v, false)}'}">${PLAY}
-        ${big ? `<span class="vnew">最新上傳</span>` : ""}</div>
+        ${big || isNew ? `<span class="vnew">最新上傳</span>` : ""}</div>
       <div class="vbody"><h3>${esc(v.title)}</h3>
         <div class="meta"><span class="src">${views(v.views)}</span><span>${ago(v.time)}</span></div></div>
     </article>`;
@@ -238,11 +239,27 @@
         <h2><img class="ch-logo" src="logo.png" alt="">比特王頻道</h2>
         <a class="more" href="#cat/channel">看全部影片 →</a>
       </div>
-      <div class="ch-grid">
-        ${vcard(VIDEOS[0], true)}
-        <div class="ch-list">${VIDEOS.slice(1, 7).map(v => vcard(v)).join("")}</div>
+      <div class="ch-row-wrap">
+        <button class="ch-arrow prev" aria-label="往左看">‹</button>
+        <div class="ch-row" id="chRow">${VIDEOS.map((v, i) => vcard(v, false, i === 0)).join("")}</div>
+        <button class="ch-arrow next" aria-label="往右看">›</button>
       </div>
     </section>`;
+  }
+  // 頻道那一排：左右箭頭一次捲動一個畫面寬，捲到底時把箭頭變淡
+  function startChannelRow() {
+    const row = $("#chRow");
+    if (!row) return;
+    const wrap = row.parentElement;
+    const step = () => row.clientWidth * 0.9;
+    wrap.querySelector(".prev").onclick = () => row.scrollBy({ left: -step(), behavior: "smooth" });
+    wrap.querySelector(".next").onclick = () => row.scrollBy({ left: step(), behavior: "smooth" });
+    const update = () => {
+      wrap.classList.toggle("at-start", row.scrollLeft < 8);
+      wrap.classList.toggle("at-end", row.scrollLeft + row.clientWidth > row.scrollWidth - 8);
+    };
+    row.addEventListener("scroll", update, { passive: true });
+    update();
   }
 
   function renderChannel() {

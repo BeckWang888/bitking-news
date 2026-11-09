@@ -470,3 +470,22 @@ img { display: block; max-width: 100%; }
 .channel .more { color: #e11d48; }
 .channel .section-head { border-bottom-color: var(--ink); }
 .ch-grid > .vcard.big { align-self: start; }
+
+/* ---------- 比特王頻道：首頁改成一排、可左右滑動 ---------- */
+.ch-row-wrap { position: relative; }
+.ch-row { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  padding: 4px 2px 14px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.ch-row > .vcard { flex: 0 0 calc((100% - 48px) / 4); scroll-snap-align: start; }
+.ch-row .vbody h3 { font-size: 15px; }
+.ch-arrow { position: absolute; top: calc(50% - 30px); z-index: 3; width: 44px; height: 44px; border-radius: 50%;
+  border: 0; background: var(--surface); color: var(--ink); font-size: 26px; line-height: 1; box-shadow: var(--shadow-lg);
+  transition: opacity .2s, transform .2s; }
+.ch-arrow:hover { transform: scale(1.08); background: #e11d48; color: #fff; }
+.ch-arrow.prev { left: -18px; } .ch-arrow.next { right: -18px; }
+.ch-row-wrap.at-start .ch-arrow.prev, .ch-row-wrap.at-end .ch-arrow.next { opacity: 0; pointer-events: none; }
+@media (max-width: 1024px) { .ch-row > .vcard { flex-basis: calc((100% - 32px) / 3); } }
+@media (max-width: 720px) {
+  .ch-row { gap: 12px; }
+  .ch-row > .vcard { flex-basis: 62%; }
+  .ch-arrow { display: none; }
+}
