@@ -149,8 +149,6 @@
             `<li><a href="#news/${a.id}"><time>${hhmm(a.time)}</time><span>${esc(a.title)}<small style="color:${catOf(a.cat).color}">${catOf(a.cat).name}・${esc(a.source)}</small></span></a></li>`).join("")}</ul>
         </aside>
       </div>
-      ${channelSection()}
-      ${fbSection()}
       <div class="home-layout">
         <div>${sections}</div>
         ${sidebar()}
@@ -243,7 +241,7 @@
     return `<section class="section channel" style="--c:#1f2b31">
       <div class="section-head">
         <h2><img class="ch-logo" src="logo.png" alt="">比特王頻道</h2>
-        <a class="more" href="#cat/channel">看全部影片 →</a>
+        <a class="more" href="${esc(CHANNEL)}" target="_blank" rel="noopener">到 YouTube 頻道 →</a>
       </div>
       <div class="ch-row-wrap">
         <button class="ch-arrow prev" aria-label="往左看">‹</button>
@@ -333,13 +331,14 @@
 
   function renderChannel() {
     $("#main").innerHTML = `
-      <div class="cat-hero ch-hero fade-in" style="--c:#1f2b31">
+      <div class="cat-hero ch-hero slim fade-in" style="--c:#1f2b31">
         <img src="logo.png" alt="比特王">
-        <div><h1>比特王頻道</h1><p>Bit King 比特王出任務・最新 ${VIDEOS.length} 支影片</p></div>
+        <div><h1>比特王專區</h1><p>Bit King 比特王出任務・YouTube 頻道與 Facebook 最新動態</p></div>
         <a class="sub-btn" href="${esc(CHANNEL)}?sub_confirmation=1" target="_blank" rel="noopener">▶ 訂閱頻道</a>
       </div>
-      ${VIDEOS.length ? `<div class="grid vgrid">${VIDEOS.map((v, i) => vcard(v, i === 0)).join("")}</div>`
-        : `<div class="empty"><b>📺</b>影片清單載入中，請稍後再來</div>`}`;
+      ${channelSection() || `<div class="empty"><b>📺</b>影片清單載入中，請稍後再來</div>`}
+      ${fbSection()}`;
+    startChannelRow();
   }
 
   // 底部大螢幕：捲動到附近才開始播放（靜音）
@@ -532,6 +531,8 @@
 
     if (type === "cat" && arg === "original") {
       renderOriginal(); setActive("original");
+    } else if (type === "cat" && arg === "pulse") {
+      if (window.BTKPulse) window.BTKPulse.render($("#main")); setActive("pulse");
     } else if (type === "cat" && arg === "channel") {
       renderChannel(); setActive("channel");
     } else if (type === "cat" && CATEGORIES.some(c => c.id === arg && arg !== "all")) {

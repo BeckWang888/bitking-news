@@ -586,8 +586,51 @@ def build():
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, OUT)
+    try:
+        update_pulse([it for items in results for it in items], final)
+    except Exception as e:
+        print(f"  ✗ 輿情分析統計失敗：{type(e).__name__} {e}")
     with_img = sum(1 for it in final if it["img"])
     print(f"  完成：共 {len(final)} 則（{with_img} 則有圖），花了 {time.time() - started:.0f} 秒")
+
+
+# ---------- 輿情分析：累積過去 24 小時的新聞，計算排行榜與熱度 ----------
+POOL = os.path.join(ROOT, "pool.json")
+PULSE = os.path.join(ROOT, "pulse.json")
+LIVE_POOL = "https://beckwang888.github.io/bitking-news/pool.json"
+
+
+def update_pulse(all_items, final):
+    import pulse
+    pool = {}
+    for src in ("live", "local"):                   # 先拿之前累積的（正式網站、本機）
+        try:
+            old = json.loads(fetch(LIVE_POOL)) if src == "live" else json.load(open(POOL, encoding="utf-8"))
+            for it in old.get("items", []):
+                pool[it["id"]] = it
+        except Exception:
+            pass
+    for it in all_items:                            # 再加上這次抓到的全部新聞
+        pool[it["id"]] = {k: it.get(k, "") for k in ("id", "cat", "title", "source", "link", "img", "time")} | \
+                         {"summary": it.get("summary", "")[:160]}
+    cutoff = (datetime.now(TW) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
+    items = [it for it in pool.values() if it["time"] >= cutoff]
+    with open(POOL, "w", encoding="utf-8") as f:
+        json.dump({"items": items}, f, ensure_ascii=False, separators=(",", ":"))
+
+    res = pulse.build_pulse(items)
+    shown = {it["id"] for it in final}              # 網站上有的新聞，點了直接開站內文章
+    for key in ("taiwan", "world", "ai"):
+        for c in res[key]:
+            c["onsite"] = c["id"] in shown
+    for lst in res["camps"].values():
+        for c in lst:
+            c["onsite"] = c["id"] in shown
+    res["updated"] = datetime.now(TW).strftime("%Y-%m-%d %H:%M")
+    res["since"] = cutoff
+    with open(PULSE, "w", encoding="utf-8") as f:
+        json.dump(res, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  ✓ 輿情分析：過去 24 小時累積 {len(items)} 則新聞")
 
 
 def loop():

@@ -5,3 +5,5 @@ news.json.tmp
 __pycache__/
 firestore.rules
 .fb_token
+pulse.json
+pool.json

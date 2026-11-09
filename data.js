@@ -19,7 +19,8 @@ const SITE = {
 
 const CATEGORIES = [
   { id: "all",      name: "首頁",   color: "#e11d48", icon: "◆" },
-  { id: "channel",  name: "比特王頻道", color: "#1f2b31", icon: "▶", video: true },
+  { id: "channel",  name: "比特王專區", color: "#1f2b31", icon: "▶", video: true },
+  { id: "pulse",    name: "輿情分析", color: "#312e81", icon: "📊", special: true },
   { id: "politics", name: "政治",   color: "#dc2626", icon: "⚖" },
   { id: "society",  name: "社會",   color: "#475569", icon: "📰" },
   { id: "world",    name: "國際",   color: "#2563eb", icon: "🌐" },
