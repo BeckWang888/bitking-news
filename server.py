@@ -201,6 +201,10 @@ def fetch_videos():
             err = str(e)
         time.sleep(2 + attempt * 2)
     if not xml or "<entry>" not in xml:
+        vids = fetch_videos_page()
+        if vids:
+            print(f"  ✓ 比特王頻道（頻道頁）{len(vids)} 支影片")
+            return vids
         print(f"  ✗ 比特王頻道 抓取失敗（{err}），改用備援影片清單")
         return None
     vids = []
@@ -218,6 +222,75 @@ def fetch_videos():
         })
     print(f"  ✓ 比特王頻道 {len(vids)} 支影片")
     return vids
+
+
+def _num(text):
+    """「17萬」「1.2萬」「3,456」「170K」「1.2M」→ 數字"""
+    t = (text or "").replace(",", "").strip()
+    m = re.search(r"([\d.]+)\s*(萬|億|K|M|B)?", t, re.I)
+    if not m:
+        return 0
+    n = float(m.group(1))
+    mult = {"萬": 1e4, "億": 1e8, "K": 1e3, "M": 1e6, "B": 1e9}.get((m.group(2) or "").upper() if m.group(2) not in ("萬", "億") else m.group(2), 1)
+    return int(n * mult)
+
+
+def _ago_to_time(text):
+    """「12 小時前」「3 天前」「2 hours ago」→ 大約的發布時間"""
+    t = (text or "").lower()
+    m = re.search(r"(\d+)\s*(秒|分鐘|小時|天|週|個月|年|second|minute|hour|day|week|month|year)", t)
+    now = datetime.now(TW)
+    if not m:
+        return now.strftime("%Y-%m-%d %H:%M")
+    n, u = int(m.group(1)), m.group(2)
+    secs = {"秒": 1, "second": 1, "分鐘": 60, "minute": 60, "小時": 3600, "hour": 3600, "天": 86400, "day": 86400,
+            "週": 604800, "week": 604800, "個月": 2592000, "month": 2592000, "年": 31536000, "year": 31536000}[u]
+    return (now - timedelta(seconds=n * secs)).strftime("%Y-%m-%d %H:%M")
+
+
+def fetch_videos_page():
+    """備用方法：讀取頻道「影片」頁面上的公開資料"""
+    url = f"https://www.youtube.com/channel/{YT_CHANNEL_ID}/videos"
+    try:
+        req = urllib.request.Request(url, headers={**UA, "Accept-Language": "zh-TW,zh;q=0.9"})
+        with urllib.request.urlopen(req, timeout=20, context=_ctx) as r:
+            page = r.read().decode("utf-8", "ignore")
+        m = re.search(r"var ytInitialData = (\{.*?\});</script>", page, re.S)
+        data = json.loads(m.group(1))
+    except Exception as e:
+        print(f"  ✗ 頻道頁讀取失敗：{e}")
+        return None
+    found = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            if "lockupViewModel" in o:
+                found.append(o["lockupViewModel"])
+                return
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(data)
+    vids = []
+    for l in found:
+        if l.get("contentType") != "LOCKUP_CONTENT_TYPE_VIDEO" or not l.get("contentId"):
+            continue
+        try:
+            md = l["metadata"]["lockupMetadataViewModel"]
+            parts = [p["text"]["content"] for row in md["metadata"]["contentMetadataViewModel"]["metadataRows"]
+                     for p in row.get("metadataParts", []) if "text" in p]
+        except Exception:
+            continue
+        vids.append({
+            "id": l["contentId"],
+            "title": clean(md.get("title", {}).get("content", "")),
+            "time": _ago_to_time(parts[1] if len(parts) > 1 else ""),
+            "views": _num(parts[0] if parts else ""),
+            "desc": "",
+        })
+    return vids[:15] or None
 
 
 VIDEO_BACKUP = os.path.join(ROOT, "videos-backup.json")
