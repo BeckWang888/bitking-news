@@ -545,3 +545,18 @@ img { display: block; max-width: 100%; }
 .fbcard .meta { font-size: 12px; margin-top: auto; }
 @media (max-width: 1024px) { .fbcard { flex-basis: calc((100% - 32px) / 3); } }
 @media (max-width: 720px) { .fbcard { flex-basis: 62%; } }
+
+/* ---------- 網站名稱：端正的粗黑體廣告字（不斜、不立體） ---------- */
+.logo-text strong,
+:root[data-theme="dark"] .logo-text strong {
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-weight: 900; font-style: normal; transform: none;
+  font-size: 36px; letter-spacing: 3px; line-height: 1.15;
+  padding: 0; -webkit-text-stroke: 0; text-shadow: none;
+  color: #1f2b31;
+}
+:root[data-theme="dark"] .logo-text strong { color: #f2f4f5; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-text strong { color: #f2f4f5; -webkit-text-stroke: 0; text-shadow: none; }
+}
+@media (max-width: 720px) { .logo-text strong { font-size: 28px; letter-spacing: 2px; } }
